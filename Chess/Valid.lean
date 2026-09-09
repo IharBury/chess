@@ -70,24 +70,63 @@ def isValid (b : Board) : Bool :=
   b.noPawnOnBackRank &&
   (!b.kingIsAttacked .white || !b.kingIsAttacked .black)
 
-/-- Validity as a proposition: `isValid b` holds. -/
+/-- A placement that satisfies the structural constraints of a legal chess
+snapshot. `Board` already places at most one piece per square. -/
 def Valid (b : Board) : Prop :=
-  b.isValid = true
+  (∀ c, (b.kingSquares c).card = 1) ∧
+  (∀ c, (b.occupiedBy c).card ≤ 16) ∧
+  b.noPawnOnBackRank = true ∧
+  ∃ c, b.kingIsAttacked c = false
 
-instance {b : Board} : Decidable (Valid b) :=
-  inferInstanceAs (Decidable (b.isValid = true))
+instance {b : Board} : Decidable (Valid b) := by
+  unfold Valid
+  infer_instance
 
-/-- The standard starting position is valid. -/
-theorem starting_isValid : isValid starting = true := by
-  native_decide
-
-theorem starting_valid : Valid starting :=
-  starting_isValid
+theorem isValid_eq_true_iff (b : Board) : isValid b = true ↔ Valid b := by
+  constructor
+  · intro h
+    simp only [isValid, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq,
+      Bool.not_eq_true'] at h
+    obtain ⟨⟨⟨⟨⟨hkw, hkb⟩, how⟩, hob⟩, hp⟩, hchk⟩ := h
+    refine ⟨?kings, ?pieces, hp, ?check⟩
+    · intro c
+      cases c with
+      | white => exact hkw
+      | black => exact hkb
+    · intro c
+      cases c with
+      | white => exact how
+      | black => exact hob
+    · cases hchk with
+      | inl h => exact ⟨.white, h⟩
+      | inr h => exact ⟨.black, h⟩
+  · intro ⟨hk, ho, hp, ⟨c, hc⟩⟩
+    simp only [isValid, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq,
+      Bool.not_eq_true']
+    refine ⟨⟨⟨⟨⟨hk .white, hk .black⟩, ho .white⟩, ho .black⟩, hp⟩, ?_⟩
+    cases c with
+    | white => exact Or.inl hc
+    | black => exact Or.inr hc
 
 /-- Neither king is under attack in the starting position. -/
 theorem starting_kings_not_attacked (c : Color) :
     starting.kingIsAttacked c = false := by
   cases c <;> native_decide
+
+/-- Starting pawns occupy ranks 2 and 7 only. -/
+theorem starting_noPawnOnBackRank : starting.noPawnOnBackRank = true := by
+  native_decide
+
+/-- The standard starting position is valid: one king and sixteen pieces
+per side, pawns off the back ranks, and neither king under attack. -/
+theorem starting_valid : Valid starting :=
+  ⟨starting_kingSquares_card,
+    fun c => le_of_eq (starting_occupiedBy_card c),
+    starting_noPawnOnBackRank,
+    ⟨.white, starting_kings_not_attacked .white⟩⟩
+
+theorem starting_isValid : isValid starting = true :=
+  (isValid_eq_true_iff starting).mpr starting_valid
 
 /-- A sliding piece does not attack through a blocker: the black rook on
 `e8` does not check the white king on `e1` while a pawn occupies `e2`. -/
