@@ -6,7 +6,7 @@ The board, pieces, empty-board attack geometry, full positions
 (side to move, castling rights, and en passant), check and double check,
 legal moves of a
 position (promotions to different pieces counted separately), checkmate,
-game states
+stalemate, game states
 (current position plus historical positions), and finished games
 (position history, player declarations, technical ends, and outcomes) are specified as Lean
 types and predicates. Theorems in the library are machine-checked: `lake build`
@@ -49,6 +49,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.Check` | Whether the player to move is in check or double check |
 | `Chess.Move` | Moves, playing a move, and the legal moves of a position |
 | `Chess.Checkmate` | Whether the player to move is checkmated |
+| `Chess.Stalemate` | Whether the player to move is stalemated |
 | `Chess.GameState` | Current position and all historical positions |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes |
 
@@ -66,6 +67,7 @@ Sample facts already in the library:
 * double check is check by two or more pieces at once (`Position.inDoubleCheck`); a single checker is not, and blocking one of two rays leaves only a single check
 * the starting position has 20 legal moves; promoting a pawn to a queen is a different move from promoting it to a rook
 * checkmate is check with no legal move (`Position.inCheckmate`); a king that can flee, and a stalemate (no legal move, not in check), are not
+* stalemate is no legal move without check (`Position.inStalemate`); checkmate, and a king that can flee, are not
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history; its current position is the standard starting position
 * a finished game records every position, player declarations (repetition claim, resignation, draw proposals with proposer and turn, acceptance), technical termination (including the timer), and who won or a draw
@@ -83,5 +85,6 @@ Sample facts already in the library:
    what `Position.isValid` uses to require that the opponent's king is
    not under attack, and what `Position.inCheck` / `Position.inDoubleCheck`
    use for the player to move. Checkmate (`Position.inCheckmate`) is that
-   check together with an empty `legalMoves` set.
+   check together with an empty `legalMoves` set; stalemate
+   (`Position.inStalemate`) is an empty `legalMoves` set without check.
 3. Run `lake build` before opening a pull request.
