@@ -163,6 +163,12 @@ theorem kingAttacks_e1_d2 : KingAttacks Square.e1 Square.d2 := by
 theorem not_kingAttacks_e1_e8 : ¬ KingAttacks Square.e1 Square.e8 := by
   decide
 
+/-- King attack is symmetric: adjacent kings attack each other. -/
+theorem kingAttacks_symmetric {s t : Square} :
+    KingAttacks s t ↔ KingAttacks t s := by
+  revert s t
+  native_decide
+
 /-- White pawns capture one rank up; they do not capture backward or straight. -/
 theorem pawnAttacks_white_d2_e3 : PawnAttacks .white Square.d2 Square.e3 := by
   decide
