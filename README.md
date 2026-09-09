@@ -53,7 +53,7 @@ Sample facts already in the library:
 * the starting position has 32 pieces, 16 per side, with unique kings on `e1` and `e8`
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history; its current position is the standard starting position
-* a finished game records every position, player declarations (repetition claim, resignation, draw proposal/acceptance), technical termination (including the timer), and who won or a draw
+* a finished game records every position, player declarations (repetition claim, resignation, draw proposals with proposer and turn, acceptance), technical termination (including the timer), and who won or a draw
 * White's win, Black's win, and a draw are three distinct outcomes
 * bishops stay on one square-color; knights always change square-color
 * a knight on `a1` attacks exactly `b3` and `c2`

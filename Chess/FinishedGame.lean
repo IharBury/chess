@@ -11,6 +11,10 @@ the game ended for technical reasons including expiry of a player's time
 (Article 6.9), and the outcome: a win for White, a win for Black, or a
 draw.
 
+Each draw proposal records who offered and on which turn. If an offer is
+not accepted, further proposals may be recorded, including by the other
+player.
+
 Legality of the play, and consistency of the outcome with the positions
 and declarations (checkmate, stalemate, a well-founded repetition claim,
 flag fall, ...), are not checked here.
@@ -106,6 +110,42 @@ theorem timer_ne_other : timer ≠ other := by
 
 end TechnicalReason
 
+/-- An offer of a draw (FIDE Article 9.1.2).
+
+If the opponent declines (by making a move without accepting), further
+offers may be made, including by the other player. Each offer records
+who proposed and on which turn. -/
+@[ext]
+structure DrawProposal where
+  /-- The player who offered the draw. -/
+  proposer : Color
+  /-- The turn on which the offer was made: the number of half-moves
+  already played, matching `GameState.ply`. -/
+  turn : Nat
+deriving DecidableEq, Repr, Inhabited
+
+namespace DrawProposal
+
+/-- Two proposals that differ only in who offered are distinct. -/
+theorem ne_of_proposer_ne {p₁ p₂ : DrawProposal}
+    (h : p₁.proposer ≠ p₂.proposer) : p₁ ≠ p₂ := by
+  intro hp
+  exact h (congrArg DrawProposal.proposer hp)
+
+/-- Two proposals that differ only in the turn are distinct. -/
+theorem ne_of_turn_ne {p₁ p₂ : DrawProposal}
+    (h : p₁.turn ≠ p₂.turn) : p₁ ≠ p₂ := by
+  intro hp
+  exact h (congrArg DrawProposal.turn hp)
+
+/-- White offering on a given turn is not Black offering on that turn. -/
+theorem white_ne_black (t : Nat) :
+    ({ proposer := .white, turn := t } : DrawProposal) ≠
+      { proposer := .black, turn := t } :=
+  ne_of_proposer_ne (Color.other_ne .black)
+
+end DrawProposal
+
 /-- A completed chess game: the positions that occurred, player
 declarations that can end the game, an optional technical termination,
 and the outcome. -/
@@ -121,9 +161,13 @@ structure FinishedGame where
   claimedDrawByRepetition : Bool
   /-- Whether a player has resigned (FIDE Article 5.1.2). -/
   resigned : Bool
-  /-- Whether a player has proposed a draw (FIDE Article 9.1.2). -/
-  proposedDraw : Bool
-  /-- Whether a player has accepted a draw offer (FIDE Article 9.1.2.3). -/
+  /-- Draw offers, oldest first (FIDE Article 9.1.2).
+
+  Each records who proposed and on which turn. If an offer is declined,
+  later offers may appear, possibly from the other player. -/
+  drawProposals : List DrawProposal
+  /-- Whether the last recorded draw offer was accepted
+  (FIDE Article 9.1.2.3). -/
   acceptedDraw : Bool
   /-- Technical termination, if any.
 
@@ -138,13 +182,13 @@ deriving Inhabited
 namespace FinishedGame
 
 /-- Assemble a finished game from a game state, with no resignation,
-repetition claim, draw proposal/acceptance, or technical termination.
+repetition claim, draw proposals, acceptance, or technical termination.
 The recorded positions are `g.positions` (never empty). -/
 def ofGameState (g : GameState) (outcome : GameOutcome) : FinishedGame where
   positions := g.positions
   claimedDrawByRepetition := false
   resigned := false
-  proposedDraw := false
+  drawProposals := []
   acceptedDraw := false
   technical := none
   outcome := outcome
@@ -159,8 +203,8 @@ def ofGameState (g : GameState) (outcome : GameOutcome) : FinishedGame where
 @[simp] theorem ofGameState_resigned (g : GameState) (o : GameOutcome) :
     (ofGameState g o).resigned = false := rfl
 
-@[simp] theorem ofGameState_proposedDraw (g : GameState) (o : GameOutcome) :
-    (ofGameState g o).proposedDraw = false := rfl
+@[simp] theorem ofGameState_drawProposals (g : GameState) (o : GameOutcome) :
+    (ofGameState g o).drawProposals = [] := rfl
 
 @[simp] theorem ofGameState_acceptedDraw (g : GameState) (o : GameOutcome) :
     (ofGameState g o).acceptedDraw = false := rfl
@@ -198,8 +242,8 @@ def startingDraw : FinishedGame :=
 @[simp] theorem startingDraw_resigned :
     startingDraw.resigned = false := rfl
 
-@[simp] theorem startingDraw_proposedDraw :
-    startingDraw.proposedDraw = false := rfl
+@[simp] theorem startingDraw_drawProposals :
+    startingDraw.drawProposals = [] := rfl
 
 @[simp] theorem startingDraw_acceptedDraw :
     startingDraw.acceptedDraw = false := rfl
@@ -232,13 +276,13 @@ theorem ne_of_resigned_ne {g₁ g₂ : FinishedGame}
   intro hg
   exact h (congrArg FinishedGame.resigned hg)
 
-/-- Two finished games that differ only in whether a draw was proposed
-are distinct. -/
-theorem ne_of_proposedDraw_ne {g₁ g₂ : FinishedGame}
-    (h : g₁.proposedDraw ≠ g₂.proposedDraw) :
+/-- Two finished games that differ only in their draw proposals are
+distinct. -/
+theorem ne_of_drawProposals_ne {g₁ g₂ : FinishedGame}
+    (h : g₁.drawProposals ≠ g₂.drawProposals) :
     g₁ ≠ g₂ := by
   intro hg
-  exact h (congrArg FinishedGame.proposedDraw hg)
+  exact h (congrArg FinishedGame.drawProposals hg)
 
 /-- Two finished games that differ only in whether a draw offer was
 accepted are distinct. -/
@@ -287,11 +331,58 @@ theorem starting_resigned_ne :
       ofGameState .starting (.win .white) :=
   ne_of_resigned_ne (by decide)
 
+/-- Record a draw proposal. Earlier declined proposals are kept, so a
+player — including the opponent — may propose again on a later turn. -/
+def proposeDraw (g : FinishedGame) (p : DrawProposal) : FinishedGame :=
+  { g with drawProposals := g.drawProposals ++ [p] }
+
+@[simp] theorem proposeDraw_drawProposals (g : FinishedGame) (p : DrawProposal) :
+    (g.proposeDraw p).drawProposals = g.drawProposals ++ [p] := rfl
+
+@[simp] theorem proposeDraw_acceptedDraw (g : FinishedGame) (p : DrawProposal) :
+    (g.proposeDraw p).acceptedDraw = g.acceptedDraw := rfl
+
+/-- Appending a proposal yields a different finished game. -/
+theorem proposeDraw_ne (g : FinishedGame) (p : DrawProposal) :
+    g.proposeDraw p ≠ g := by
+  intro h
+  have := congrArg FinishedGame.drawProposals h
+  simp at this
+
+/-- Two successive proposals are recorded in order. -/
+theorem proposeDraw_proposeDraw (g : FinishedGame) (p₁ p₂ : DrawProposal) :
+    ((g.proposeDraw p₁).proposeDraw p₂).drawProposals =
+      g.drawProposals ++ [p₁, p₂] := by
+  simp [proposeDraw]
+
 /-- Proposing a draw yields a different finished game from one that
 records no proposal, even when the positions and outcome agree. -/
-theorem starting_proposedDraw_ne :
-    { startingDraw with proposedDraw := true } ≠ startingDraw :=
-  ne_of_proposedDraw_ne (by decide)
+theorem starting_proposeDraw_ne (p : DrawProposal) :
+    startingDraw.proposeDraw p ≠ startingDraw :=
+  proposeDraw_ne _ _
+
+/-- Who proposed is part of the identity of a draw offer. -/
+theorem starting_proposeDraw_proposer_ne (t : Nat) :
+    startingDraw.proposeDraw { proposer := .white, turn := t } ≠
+      startingDraw.proposeDraw { proposer := .black, turn := t } :=
+  ne_of_drawProposals_ne (by
+    simp
+    exact DrawProposal.white_ne_black t)
+
+/-- The turn of a proposal is part of its identity. -/
+theorem starting_proposeDraw_turn_ne (c : Color) {t₁ t₂ : Nat} (h : t₁ ≠ t₂) :
+    startingDraw.proposeDraw { proposer := c, turn := t₁ } ≠
+      startingDraw.proposeDraw { proposer := c, turn := t₂ } :=
+  ne_of_drawProposals_ne (by
+    simp
+    exact DrawProposal.ne_of_turn_ne h)
+
+/-- If a draw is not accepted, a further proposal — possibly by the other
+player, on a later turn — is a different finished game. -/
+theorem starting_proposeDraw_again_ne (p₁ p₂ : DrawProposal) :
+    (startingDraw.proposeDraw p₁).proposeDraw p₂ ≠
+      startingDraw.proposeDraw p₁ :=
+  proposeDraw_ne _ _
 
 /-- Accepting a draw yields a different finished game from one that
 records no acceptance, even when the positions and outcome agree. -/
