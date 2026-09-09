@@ -98,12 +98,22 @@ theorem color_eq_iff (s t : Square) :
 
 /-- Named squares used in theorems. -/
 def a1 : Square := ⟨0, 0⟩
-def a4 : Square := ⟨0, 3⟩
-def c2 : Square := ⟨2, 1⟩
-def c3 : Square := ⟨2, 2⟩
+def b1 : Square := ⟨1, 0⟩
+def c1 : Square := ⟨2, 0⟩
 def d1 : Square := ⟨3, 0⟩
+def f1 : Square := ⟨5, 0⟩
+def g1 : Square := ⟨6, 0⟩
+def a2 : Square := ⟨0, 1⟩
+def c2 : Square := ⟨2, 1⟩
 def d2 : Square := ⟨3, 1⟩
+def a3 : Square := ⟨0, 2⟩
+def b3 : Square := ⟨1, 2⟩
+def c3 : Square := ⟨2, 2⟩
+def f3 : Square := ⟨5, 2⟩
+def h3 : Square := ⟨7, 2⟩
+def a4 : Square := ⟨0, 3⟩
 def d4 : Square := ⟨3, 3⟩
+def a7 : Square := ⟨0, 6⟩
 def d5 : Square := ⟨3, 4⟩
 def e1 : Square := ⟨4, 0⟩
 def e2 : Square := ⟨4, 1⟩
@@ -117,8 +127,12 @@ def f4 : Square := ⟨5, 3⟩
 def f5 : Square := ⟨5, 4⟩
 def f6 : Square := ⟨5, 5⟩
 def h1 : Square := ⟨7, 0⟩
-def b3 : Square := ⟨1, 2⟩
 def a8 : Square := ⟨0, 7⟩
+def b8 : Square := ⟨1, 7⟩
+def c8 : Square := ⟨2, 7⟩
+def d8 : Square := ⟨3, 7⟩
+def f8 : Square := ⟨5, 7⟩
+def g8 : Square := ⟨6, 7⟩
 def h8 : Square := ⟨7, 7⟩
 
 @[simp] theorem a1_color : a1.color = .black := by decide

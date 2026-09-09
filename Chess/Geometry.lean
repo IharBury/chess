@@ -60,6 +60,26 @@ def pawnJumpToRank (c : Color) : Rank :=
   | .white => 3
   | .black => 4
 
+/-- Rank on which a pawn of color `c` stands before any move.
+White's pawns start on rank 2; Black's on rank 7. -/
+def pawnStartRank (c : Color) : Rank :=
+  match c with
+  | .white => 1
+  | .black => 6
+
+/-- Rank on which a pawn of color `c` promotes.
+White promotes on rank 8; Black on rank 1. -/
+def pawnPromotionRank (c : Color) : Rank :=
+  match c with
+  | .white => 7
+  | .black => 0
+
+/-- Rank change of a one-square pawn advance: White `+1`, Black `-1`. -/
+def pawnPushDelta (c : Color) : ℤ :=
+  match c with
+  | .white => 1
+  | .black => -1
+
 /-- Landing square of a two-square pawn advance that passed over `over`.
 The file is that of `over`; the rank is `pawnJumpToRank c`. -/
 def pawnJumpLanding (c : Color) (over : Square) : Square :=
@@ -154,6 +174,12 @@ theorem not_pawnAttacks_white_d2_d4 : ¬ PawnAttacks .white Square.d2 Square.d4 
 @[simp] theorem pawnJumpOverRank_black : pawnJumpOverRank .black = 5 := rfl
 @[simp] theorem pawnJumpToRank_white : pawnJumpToRank .white = 3 := rfl
 @[simp] theorem pawnJumpToRank_black : pawnJumpToRank .black = 4 := rfl
+@[simp] theorem pawnStartRank_white : pawnStartRank .white = 1 := rfl
+@[simp] theorem pawnStartRank_black : pawnStartRank .black = 6 := rfl
+@[simp] theorem pawnPromotionRank_white : pawnPromotionRank .white = 7 := rfl
+@[simp] theorem pawnPromotionRank_black : pawnPromotionRank .black = 0 := rfl
+@[simp] theorem pawnPushDelta_white : pawnPushDelta .white = 1 := rfl
+@[simp] theorem pawnPushDelta_black : pawnPushDelta .black = -1 := rfl
 
 /-- White's double-step passes over rank 3 and lands on rank 4 of the same file. -/
 theorem pawnJumpLanding_white_e3 :
