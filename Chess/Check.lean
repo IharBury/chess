@@ -44,11 +44,13 @@ theorem valid_opponent_not_attacked {p : Position} (h : Valid p) :
   h.2.1
 
 /-- The standard starting position is not in check. -/
-theorem starting_not_inCheck : starting.inCheck = false :=
-  Board.starting_kings_not_attacked .white
+theorem starting_not_inCheck : starting.inCheck = false := by
+  unfold inCheck
+  exact Board.starting_kings_not_attacked .white
 
-theorem starting_not_InCheck : ¬ InCheck starting := by
-  simp [InCheck, starting_not_inCheck]
+theorem starting_not_InCheck : ¬ InCheck starting :=
+  mt (inCheck_eq_true_iff starting).mpr
+    (Eq.trans_ne starting_not_inCheck Bool.false_ne_true)
 
 /-- Black to move, with a white rook attacking the black king: in check. -/
 theorem currentPlayerInCheck_inCheck :
