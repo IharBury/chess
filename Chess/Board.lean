@@ -15,6 +15,9 @@ namespace Chess
 /-- A placement of pieces on the board. Empty squares are `none`. -/
 def Board := Square → Option Piece
 
+instance : Inhabited Board :=
+  ⟨fun _ => none⟩
+
 namespace Board
 
 /-- The standard starting position. -/
