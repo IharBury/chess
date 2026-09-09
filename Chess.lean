@@ -4,6 +4,7 @@ import Chess.Piece
 import Chess.Board
 import Chess.Geometry
 import Chess.Position
+import Chess.GameState
 
 /-!
 # Chess
@@ -19,4 +20,5 @@ without circular imports:
 * `Chess.Board` — placements of pieces, including the starting position
 * `Chess.Geometry` — empty-board attack geometry and its basic theorems
 * `Chess.Position` — board, side to move, castling rights, and en passant
+* `Chess.GameState` — current position together with the historical positions
 -/
