@@ -3,6 +3,7 @@ import Chess.Square
 import Chess.Piece
 import Chess.Board
 import Chess.Geometry
+import Chess.Valid
 import Chess.Position
 import Chess.GameState
 import Chess.FinishedGame
@@ -20,6 +21,7 @@ without circular imports:
 * `Chess.Piece` — piece kinds and colored pieces
 * `Chess.Board` — placements of pieces, including the starting position
 * `Chess.Geometry` — empty-board attack geometry and its basic theorems
+* `Chess.Valid` — occupied-board attacks and whether a placement is valid
 * `Chess.Position` — board, side to move, castling rights, and en passant
 * `Chess.GameState` — current position together with the historical positions
 * `Chess.FinishedGame` — completed games: positions, declarations, technical ends, and outcomes

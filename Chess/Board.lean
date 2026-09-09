@@ -52,6 +52,17 @@ def occupied (b : Board) : Finset Square :=
 def occupiedBy (b : Board) (c : Color) : Finset Square :=
   Finset.univ.filter fun s => (b s).map (·.color) = some c
 
+/-- Squares occupied by a king of the given color. -/
+def kingSquares (b : Board) (c : Color) : Finset Square :=
+  Finset.univ.filter fun s =>
+    (b s).map (fun p => (p.color, p.kind)) = some (c, .king)
+
+/-- A board places at most one piece on each square: the value at a
+square is a single optional piece. -/
+theorem at_most_one_piece_per_square (b : Board) (s : Square) {p q : Piece}
+    (hp : b s = some p) (hq : b s = some q) : p = q :=
+  Option.some.inj (hp.symm.trans hq)
+
 /-- The starting position has 32 pieces. -/
 theorem starting_occupied_card : starting.occupied.card = 32 := by
   native_decide
@@ -59,6 +70,20 @@ theorem starting_occupied_card : starting.occupied.card = 32 := by
 /-- Each side starts with 16 pieces. -/
 theorem starting_occupiedBy_card (c : Color) : (starting.occupiedBy c).card = 16 := by
   cases c <;> native_decide
+
+/-- The starting position has a unique white king, on `e1`. -/
+theorem starting_kingSquares_white : starting.kingSquares .white = {Square.e1} := by
+  native_decide
+
+/-- The starting position has a unique black king, on `e8`. -/
+theorem starting_kingSquares_black : starting.kingSquares .black = {Square.e8} := by
+  native_decide
+
+/-- Each side starts with exactly one king. -/
+theorem starting_kingSquares_card (c : Color) : (starting.kingSquares c).card = 1 := by
+  cases c with
+  | white => simp [starting_kingSquares_white]
+  | black => simp [starting_kingSquares_black]
 
 /-- Whether the starting position has a white king on this square. -/
 def startingIsWhiteKing (s : Square) : Bool :=
