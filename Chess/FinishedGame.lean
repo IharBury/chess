@@ -364,18 +364,16 @@ theorem starting_proposeDraw_ne (p : DrawProposal) :
 /-- Who proposed is part of the identity of a draw offer. -/
 theorem starting_proposeDraw_proposer_ne (t : Nat) :
     startingDraw.proposeDraw { proposer := .white, turn := t } ≠
-      startingDraw.proposeDraw { proposer := .black, turn := t } :=
-  ne_of_drawProposals_ne (by
-    simp
-    exact DrawProposal.white_ne_black t)
+      startingDraw.proposeDraw { proposer := .black, turn := t } := by
+  apply ne_of_drawProposals_ne
+  simp
 
 /-- The turn of a proposal is part of its identity. -/
 theorem starting_proposeDraw_turn_ne (c : Color) {t₁ t₂ : Nat} (h : t₁ ≠ t₂) :
     startingDraw.proposeDraw { proposer := c, turn := t₁ } ≠
-      startingDraw.proposeDraw { proposer := c, turn := t₂ } :=
-  ne_of_drawProposals_ne (by
-    simp
-    exact DrawProposal.ne_of_turn_ne h)
+      startingDraw.proposeDraw { proposer := c, turn := t₂ } := by
+  apply ne_of_drawProposals_ne
+  simpa using h
 
 /-- If a draw is not accepted, a further proposal — possibly by the other
 player, on a later turn — is a different finished game. -/
