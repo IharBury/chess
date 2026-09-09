@@ -45,6 +45,26 @@ def PawnAttacks (c : Color) (s t : Square) : Prop :=
       | .white => 1
       | .black => -1
 
+/-- Rank a pawn of color `c` passes over in a two-square first move.
+White jumps from rank 2 to rank 4 over rank 3; Black from rank 7 to
+rank 5 over rank 6. -/
+def pawnJumpOverRank (c : Color) : Rank :=
+  match c with
+  | .white => 2
+  | .black => 5
+
+/-- Rank a pawn of color `c` occupies after a two-square first move.
+White lands on rank 4; Black on rank 5. -/
+def pawnJumpToRank (c : Color) : Rank :=
+  match c with
+  | .white => 3
+  | .black => 4
+
+/-- Landing square of a two-square pawn advance that passed over `over`.
+The file is that of `over`; the rank is `pawnJumpToRank c`. -/
+def pawnJumpLanding (c : Color) (over : Square) : Square :=
+  ⟨over.file, pawnJumpToRank c⟩
+
 /-- Square `u` lies strictly between `s` and `t` on a bishop or rook ray. -/
 def Between (s t u : Square) : Prop :=
   s ≠ u ∧ u ≠ t ∧
@@ -129,6 +149,19 @@ theorem pawnAttacks_white_d2_e3 : PawnAttacks .white Square.d2 Square.e3 := by
 
 theorem not_pawnAttacks_white_d2_d4 : ¬ PawnAttacks .white Square.d2 Square.d4 := by
   decide
+
+@[simp] theorem pawnJumpOverRank_white : pawnJumpOverRank .white = 2 := rfl
+@[simp] theorem pawnJumpOverRank_black : pawnJumpOverRank .black = 5 := rfl
+@[simp] theorem pawnJumpToRank_white : pawnJumpToRank .white = 3 := rfl
+@[simp] theorem pawnJumpToRank_black : pawnJumpToRank .black = 4 := rfl
+
+/-- White's double-step passes over rank 3 and lands on rank 4 of the same file. -/
+theorem pawnJumpLanding_white_e3 :
+    pawnJumpLanding .white Square.e3 = Square.e4 := rfl
+
+/-- Black's double-step passes over rank 6 and lands on rank 5 of the same file. -/
+theorem pawnJumpLanding_black_e6 :
+    pawnJumpLanding .black Square.e6 = Square.e5 := rfl
 
 /-- Squares strictly between `a1` and `a8` lie on the a-file. -/
 theorem between_a1_a8 :

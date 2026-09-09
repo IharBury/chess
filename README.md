@@ -42,6 +42,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.Geometry` | Empty-board attacks (bishop, rook, queen, king, knight, pawn) |
 | `Chess.Valid` | Occupied-board attacks and whether a placement is valid |
 | `Chess.Position` | Board, side to move, castling rights, and en passant |
+| `Chess.PositionValid` | Whether a position is valid |
 | `Chess.GameState` | Current position and all historical positions |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes |
 
@@ -53,6 +54,8 @@ Sample facts already in the library:
 * `a1` is a black square; opposite corners have the same color
 * the starting position has 32 pieces, 16 per side, with unique kings on `e1` and `e8`
 * the starting position is a valid board; adjacent kings (both in check) are not
+* the standard starting position is a valid position (`Position.starting_valid`): White to move, all four castling rights with king and rook at home, and no en passant
+* a position is invalid if the opponent is in check, a castling right has king or rook off their starting squares, or en passant does not match a capturable two-square pawn jump
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history; its current position is the standard starting position
 * a finished game records every position, player declarations (repetition claim, resignation, draw proposals with proposer and turn, acceptance), technical termination (including the timer), and who won or a draw
@@ -66,5 +69,7 @@ Sample facts already in the library:
    add a file `Chess/YourTopic.lean` and `import` it from `Chess.lean`.
 2. Prefer hypotheses that match the current geometry: empty-board attacks do
    not account for pins. Occupied-board attacks (`Board.attacks`) do
-   account for blocking pieces and are what `Board.isValid` uses for check.
+   account for blocking pieces and are what `Board.isValid` uses for check
+   and what `Position.isValid` uses to require that the opponent's king is
+   not under attack.
 3. Run `lake build` before opening a pull request.
