@@ -1,8 +1,3 @@
-/-
-Copyright (c) 2026 Ihar Bury.
-Released under the Unlicense; see LICENSE.
-Authors: Ihar Bury
--/
 import Chess.Piece
 import Chess.Square
 import Mathlib.Data.Fintype.BigOperators

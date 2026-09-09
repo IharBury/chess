@@ -1,8 +1,3 @@
-/-
-Copyright (c) 2026 Ihar Bury.
-Released under the Unlicense; see LICENSE.
-Authors: Ihar Bury
--/
 import Chess.Color
 import Mathlib.Data.Fintype.Prod
 import Mathlib.Data.Int.Basic
