@@ -257,6 +257,36 @@ theorem orthoAdj_ne {s t : Square} (h : OrthogonalAdjacent s t) : s ≠ t := by
     have : (Square.deltaFile s s).natAbs = 1 := hrf.2
     simp at this
 
+/-- Orthogonal adjacency is symmetric. -/
+theorem orthoAdj_symmetric {s t : Square} :
+    OrthogonalAdjacent s t ↔ OrthogonalAdjacent t s := by
+  revert s t
+  native_decide
+
+/-- Knight attack is symmetric. -/
+theorem knightAttacks_symmetric {s t : Square} :
+    KnightAttacks s t ↔ KnightAttacks t s := by
+  revert s t
+  native_decide
+
+/-- A knight does not attack an orthogonal neighbor. -/
+theorem not_knightAttacks_of_orthoAdj {s t : Square}
+    (h : OrthogonalAdjacent s t) : ¬ KnightAttacks s t := by
+  revert s t
+  native_decide
+
+/-- A knight that checks a square cannot attack an orthogonal neighbor of
+that square: those neighbors have the same color as the knight. -/
+theorem orthoAdj_not_knightAttacks {k t n : Square}
+    (ho : OrthogonalAdjacent k t) (hatt : KnightAttacks n k) :
+    ¬ KnightAttacks n t := by
+  intro hnt
+  have hk : k.color = n.color.other := knightAttacks_other_color hatt
+  have ht : t.color = n.color.other := knightAttacks_other_color hnt
+  have hto : t.color = k.color.other := orthoAdj_color ho
+  rw [hk, Color.other_other] at hto
+  exact Color.other_ne n.color (ht.symm.trans hto)
+
 /-- The one-file neighbor of `s`: toward the h-file, or toward `g` on the
 h-file. Every square has such a neighbor. -/
 def horizNeighbor (s : Square) : Square :=
