@@ -6,12 +6,14 @@ import Mathlib.Data.Fintype.Card
 
 A finished game records every position that occurred, whether a player
 claimed a draw by threefold repetition (FIDE Article 9.2), resigned
-(Article 5.1.2), or proposed or accepted a draw (Article 9.1), and the
-outcome: a win for White, a win for Black, or a draw.
+(Article 5.1.2), or proposed or accepted a draw (Article 9.1), whether
+the game ended for technical reasons including expiry of a player's time
+(Article 6.9), and the outcome: a win for White, a win for Black, or a
+draw.
 
 Legality of the play, and consistency of the outcome with the positions
 and declarations (checkmate, stalemate, a well-founded repetition claim,
-...), are not checked here.
+flag fall, ...), are not checked here.
 -/
 
 namespace Chess
@@ -74,8 +76,39 @@ theorem isDraw_iff_winner?_none (o : GameOutcome) :
 
 end GameOutcome
 
+/-- A technical reason a game may end without checkmate, stalemate,
+resignation, or an agreed or claimed draw. -/
+inductive TechnicalReason where
+  /-- A player's time expired (FIDE Article 6.9).
+
+  The player who overstepped loses, except that the game is drawn if the
+  opponent cannot checkmate by any possible series of legal moves. -/
+  | timer
+  /-- Any other technical termination: default, an arbiter's decision,
+  or similar. -/
+  | other
+deriving DecidableEq, Repr, Inhabited
+
+namespace TechnicalReason
+
+instance : Fintype TechnicalReason where
+  elems := {timer, other}
+  complete r := by cases r <;> simp
+
+/-- There are two distinguished technical reasons. -/
+theorem card : Fintype.card TechnicalReason = 2 :=
+  rfl
+
+/-- Timer expiry is not a generic "other" technical reason. -/
+theorem timer_ne_other : timer ≠ other := by
+  intro h
+  cases h
+
+end TechnicalReason
+
 /-- A completed chess game: the positions that occurred, player
-declarations that can end the game, and the outcome. -/
+declarations that can end the game, an optional technical termination,
+and the outcome. -/
 @[ext]
 structure FinishedGame where
   /-- Positions of the game, oldest first, including the terminal position. -/
@@ -92,6 +125,12 @@ structure FinishedGame where
   proposedDraw : Bool
   /-- Whether a player has accepted a draw offer (FIDE Article 9.1.2.3). -/
   acceptedDraw : Bool
+  /-- Technical termination, if any.
+
+  `some .timer` is expiry of a player's time; `some .other` covers
+  remaining technical reasons; `none` means the game did not end
+  technically. -/
+  technical : Option TechnicalReason
   /-- Who won, or a draw. -/
   outcome : GameOutcome
 deriving Inhabited
@@ -99,14 +138,15 @@ deriving Inhabited
 namespace FinishedGame
 
 /-- Assemble a finished game from a game state, with no resignation,
-repetition claim, or draw proposal/acceptance. The recorded positions
-are `g.positions` (never empty). -/
+repetition claim, draw proposal/acceptance, or technical termination.
+The recorded positions are `g.positions` (never empty). -/
 def ofGameState (g : GameState) (outcome : GameOutcome) : FinishedGame where
   positions := g.positions
   claimedDrawByRepetition := false
   resigned := false
   proposedDraw := false
   acceptedDraw := false
+  technical := none
   outcome := outcome
 
 @[simp] theorem ofGameState_positions (g : GameState) (o : GameOutcome) :
@@ -124,6 +164,9 @@ def ofGameState (g : GameState) (outcome : GameOutcome) : FinishedGame where
 
 @[simp] theorem ofGameState_acceptedDraw (g : GameState) (o : GameOutcome) :
     (ofGameState g o).acceptedDraw = false := rfl
+
+@[simp] theorem ofGameState_technical (g : GameState) (o : GameOutcome) :
+    (ofGameState g o).technical = none := rfl
 
 @[simp] theorem ofGameState_outcome (g : GameState) (o : GameOutcome) :
     (ofGameState g o).outcome = o := rfl
@@ -160,6 +203,9 @@ def startingDraw : FinishedGame :=
 
 @[simp] theorem startingDraw_acceptedDraw :
     startingDraw.acceptedDraw = false := rfl
+
+@[simp] theorem startingDraw_technical :
+    startingDraw.technical = none := rfl
 
 @[simp] theorem startingDraw_outcome :
     startingDraw.outcome = .draw := rfl
@@ -201,6 +247,14 @@ theorem ne_of_acceptedDraw_ne {g₁ g₂ : FinishedGame}
     g₁ ≠ g₂ := by
   intro hg
   exact h (congrArg FinishedGame.acceptedDraw hg)
+
+/-- Two finished games that differ only in their technical termination
+are distinct. -/
+theorem ne_of_technical_ne {g₁ g₂ : FinishedGame}
+    (h : g₁.technical ≠ g₂.technical) :
+    g₁ ≠ g₂ := by
+  intro hg
+  exact h (congrArg FinishedGame.technical hg)
 
 /-- Two finished games that differ only in their positions are distinct. -/
 theorem ne_of_positions_ne {g₁ g₂ : FinishedGame}
@@ -244,6 +298,26 @@ records no acceptance, even when the positions and outcome agree. -/
 theorem starting_acceptedDraw_ne :
     { startingDraw with acceptedDraw := true } ≠ startingDraw :=
   ne_of_acceptedDraw_ne (by decide)
+
+/-- Flag fall yields a different finished game from one that did not end
+technically, even when the positions and outcome agree. -/
+theorem starting_timer_ne :
+    { ofGameState .starting (.win .white) with technical := some .timer } ≠
+      ofGameState .starting (.win .white) :=
+  ne_of_technical_ne (by decide)
+
+/-- Another technical finish is likewise distinct from no technical
+termination. -/
+theorem starting_other_technical_ne :
+    { ofGameState .starting (.win .white) with technical := some .other } ≠
+      ofGameState .starting (.win .white) :=
+  ne_of_technical_ne (by decide)
+
+/-- A non-timer technical finish is distinct from flag fall. -/
+theorem starting_timer_ne_other :
+    { ofGameState .starting (.win .white) with technical := some .timer } ≠
+      { ofGameState .starting (.win .white) with technical := some .other } :=
+  ne_of_technical_ne (by decide)
 
 /-- Advancing the underlying game yields a different finished game. -/
 theorem ofGameState_advance_ne (p : Position) (o : GameOutcome) :

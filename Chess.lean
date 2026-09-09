@@ -22,5 +22,5 @@ without circular imports:
 * `Chess.Geometry` — empty-board attack geometry and its basic theorems
 * `Chess.Position` — board, side to move, castling rights, and en passant
 * `Chess.GameState` — current position together with the historical positions
-* `Chess.FinishedGame` — completed games: positions, player declarations, and outcomes
+* `Chess.FinishedGame` — completed games: positions, declarations, technical ends, and outcomes
 -/
