@@ -146,7 +146,15 @@ def starting : Position where
 theorem starting_castling_card : starting.castling.card = 4 := by
   rw [starting_castling, CastlingRights.all, Finset.card_univ, CastlingRight.card]
 
-@[simp] theorem starting_allows (c : Color) (side : CastlingSide) :
+/-- Each of the four castling privileges is present at the start. -/
+theorem starting_castling_rights :
+    CastlingRight.whiteKingside ∈ starting.castling ∧
+    CastlingRight.whiteQueenside ∈ starting.castling ∧
+    CastlingRight.blackKingside ∈ starting.castling ∧
+    CastlingRight.blackQueenside ∈ starting.castling := by
+  simp [CastlingRights.all]
+
+theorem starting_allows (c : Color) (side : CastlingSide) :
     starting.castling.allows c side = true := by
   simp
 
