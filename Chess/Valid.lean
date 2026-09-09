@@ -145,6 +145,16 @@ def pawnOnFirstRank : Board := fun s =>
 theorem pawnOnFirstRank_not_valid : isValid pawnOnFirstRank = false := by
   native_decide
 
+/-- A white pawn on the last rank. -/
+def pawnOnLastRank : Board := fun s =>
+  if s = Square.a8 then some { color := .white, kind := .pawn }
+  else if s = Square.e1 then some { color := .white, kind := .king }
+  else if s = Square.e8 then some { color := .black, kind := .king }
+  else none
+
+theorem pawnOnLastRank_not_valid : isValid pawnOnLastRank = false := by
+  native_decide
+
 /-- Adjacent kings attack each other, so both are under attack. -/
 def adjacentKings : Board := fun s =>
   if s = Square.e1 then some { color := .white, kind := .king }
