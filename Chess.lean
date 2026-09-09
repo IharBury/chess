@@ -11,6 +11,7 @@ import Chess.Move
 import Chess.Checkmate
 import Chess.TwoKings
 import Chess.KingBishop
+import Chess.KingKnight
 import Chess.Stalemate
 import Chess.GameState
 import Chess.FinishedGame
@@ -36,6 +37,7 @@ without circular imports:
 * `Chess.Checkmate` — whether the player to move is checkmated
 * `Chess.TwoKings` — two kings alone cannot reach checkmate
 * `Chess.KingBishop` — king and bishop versus king cannot reach checkmate
+* `Chess.KingKnight` — king and knight versus king cannot reach checkmate
 * `Chess.Stalemate` — whether the player to move is stalemated
 * `Chess.GameState` — current position together with the historical positions
 * `Chess.FinishedGame` — completed games: positions, declarations, technical ends, and outcomes
