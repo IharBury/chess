@@ -21,22 +21,23 @@ no legal move. -/
 def inCheckmate (p : Position) : Bool :=
   p.inCheck && p.legalMoves.card == 0
 
-/-- The player to move is checkmated: they are in check and every candidate
-move is illegal. -/
+/-- The player to move is checkmated: they are in check and have no
+legal move. -/
 def InCheckmate (p : Position) : Prop :=
-  InCheck p ∧ ∀ m : Move, ¬ LegalMove p m
+  InCheck p ∧ p.legalMoves = ∅
 
-instance {p : Position} : Decidable (InCheckmate p) := by
-  unfold InCheckmate
-  infer_instance
+instance {p : Position} : Decidable (InCheckmate p) :=
+  inferInstanceAs (Decidable (_ ∧ _))
 
 theorem inCheckmate_eq_true_iff (p : Position) :
     p.inCheckmate = true ↔ InCheckmate p := by
-  simp only [inCheckmate, InCheckmate, Bool.and_eq_true, beq_iff_eq,
-    Finset.card_eq_zero, inCheck_eq_true_iff]
-  refine and_congr_right fun _ => ?_
-  rw [Finset.eq_empty_iff_forall_notMem]
-  simp [mem_legalMoves_iff_LegalMove]
+  simp [inCheckmate, InCheckmate, inCheck_eq_true_iff, beq_iff_eq,
+    Finset.card_eq_zero]
+
+/-- Checkmate is check together with every candidate move being illegal. -/
+theorem InCheckmate_iff_forall_not_LegalMove (p : Position) :
+    InCheckmate p ↔ InCheck p ∧ ∀ m : Move, ¬ LegalMove p m := by
+  simp [InCheckmate, Finset.eq_empty_iff_forall_notMem, mem_legalMoves_iff_LegalMove]
 
 /-- Checkmate is a special case of check. -/
 theorem inCheckmate_implies_inCheck {p : Position}
@@ -56,11 +57,12 @@ theorem not_inCheck_not_inCheckmate {p : Position}
   simp [inCheckmate, h]
 
 /-- A position with a legal move is not checkmate. -/
-theorem not_inCheckmate_of_mem_legalMoves {p : Position} {m : Move}
-    (h : m ∈ p.legalMoves) : p.inCheckmate = false := by
-  have hne : p.legalMoves.card ≠ 0 :=
-    Nat.ne_of_gt (Finset.card_pos.mpr ⟨m, h⟩)
-  simp [inCheckmate, hne]
+theorem not_inCheckmate_of_legalMoves_ne_empty {p : Position}
+    (h : p.legalMoves ≠ ∅) : p.inCheckmate = false := by
+  have hc : (p.legalMoves.card == 0) = false := by
+    rw [beq_eq_false_iff_ne]
+    exact mt Finset.card_eq_zero.mp h
+  simp [inCheckmate, hc]
 
 /-- The standard starting position is not checkmate. -/
 theorem starting_not_inCheckmate : starting.inCheckmate = false :=
@@ -72,10 +74,8 @@ theorem starting_not_InCheckmate : ¬ InCheckmate starting :=
 
 /-- Black is in check from a rook but can step off the file: not mate. -/
 theorem currentPlayerInCheck_not_inCheckmate :
-    currentPlayerInCheck.inCheckmate = false :=
-  not_inCheckmate_of_mem_legalMoves
-    (by native_decide :
-      Move.std Square.e8 Square.d8 ∈ currentPlayerInCheck.legalMoves)
+    currentPlayerInCheck.inCheckmate = false := by
+  native_decide
 
 /-! ### Checkmate examples -/
 
