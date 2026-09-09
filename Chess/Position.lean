@@ -109,6 +109,52 @@ def rookSquare (r : CastlingRight) : Square :=
 @[simp] theorem blackQueenside_rookSquare :
     blackQueenside.rookSquare = Square.a8 := rfl
 
+/-- Square the king occupies after this castling manoeuvre. -/
+def kingDest (r : CastlingRight) : Square :=
+  match r.color, r.side with
+  | .white, .kingside => Square.g1
+  | .white, .queenside => Square.c1
+  | .black, .kingside => Square.g8
+  | .black, .queenside => Square.c8
+
+/-- Square the rook occupies after this castling manoeuvre. -/
+def rookDest (r : CastlingRight) : Square :=
+  match r.color, r.side with
+  | .white, .kingside => Square.f1
+  | .white, .queenside => Square.d1
+  | .black, .kingside => Square.f8
+  | .black, .queenside => Square.d8
+
+/-- Squares that must be empty for this castling manoeuvre. -/
+def clearSquares (r : CastlingRight) : Finset Square :=
+  match r.color, r.side with
+  | .white, .kingside => {Square.f1, Square.g1}
+  | .white, .queenside => {Square.b1, Square.c1, Square.d1}
+  | .black, .kingside => {Square.f8, Square.g8}
+  | .black, .queenside => {Square.b8, Square.c8, Square.d8}
+
+/-- Squares the king occupies or crosses while castling (must not be
+attacked). -/
+def kingTransitSquares (r : CastlingRight) : Finset Square :=
+  match r.color, r.side with
+  | .white, .kingside => {Square.e1, Square.f1, Square.g1}
+  | .white, .queenside => {Square.e1, Square.d1, Square.c1}
+  | .black, .kingside => {Square.e8, Square.f8, Square.g8}
+  | .black, .queenside => {Square.e8, Square.d8, Square.c8}
+
+/-- Whether every square the king or rook must pass through is empty. -/
+def pathClear (r : CastlingRight) (b : Board) : Bool :=
+  decide (∀ s ∈ r.clearSquares, b s = none)
+
+@[simp] theorem whiteKingside_kingDest :
+    whiteKingside.kingDest = Square.g1 := rfl
+@[simp] theorem whiteQueenside_kingDest :
+    whiteQueenside.kingDest = Square.c1 := rfl
+@[simp] theorem blackKingside_kingDest :
+    blackKingside.kingDest = Square.g8 := rfl
+@[simp] theorem blackQueenside_kingDest :
+    blackQueenside.kingDest = Square.c8 := rfl
+
 end CastlingRight
 
 /-- Remaining castling privileges of both players.

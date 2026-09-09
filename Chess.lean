@@ -6,6 +6,7 @@ import Chess.Geometry
 import Chess.Valid
 import Chess.Position
 import Chess.PositionValid
+import Chess.Move
 import Chess.GameState
 import Chess.FinishedGame
 
@@ -25,6 +26,7 @@ without circular imports:
 * `Chess.Valid` — occupied-board attacks and whether a placement is valid
 * `Chess.Position` — board, side to move, castling rights, and en passant
 * `Chess.PositionValid` — whether a position (board, turn, castling, en passant) is valid
+* `Chess.Move` — moves (including distinct promotions), playing them, and legal-move enumeration
 * `Chess.GameState` — current position together with the historical positions
 * `Chess.FinishedGame` — completed games: positions, declarations, technical ends, and outcomes
 -/

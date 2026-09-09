@@ -36,10 +36,34 @@ def isSlider : PieceKind → Bool
   | bishop | rook | queen => true
   | pawn | knight | king => false
 
+/-- Whether a pawn may promote to this kind (knight, bishop, rook, or queen). -/
+def canPromoteTo : PieceKind → Bool
+  | knight | bishop | rook | queen => true
+  | pawn | king => false
+
+/-- The four kinds a pawn may promote to. -/
+def promotionUniv : Finset PieceKind :=
+  {knight, bishop, rook, queen}
+
 @[simp] theorem bishop_isSlider : isSlider bishop = true := rfl
 @[simp] theorem rook_isSlider : isSlider rook = true := rfl
 @[simp] theorem queen_isSlider : isSlider queen = true := rfl
 @[simp] theorem knight_isSlider : isSlider knight = false := rfl
+
+@[simp] theorem knight_canPromoteTo : canPromoteTo knight = true := rfl
+@[simp] theorem bishop_canPromoteTo : canPromoteTo bishop = true := rfl
+@[simp] theorem rook_canPromoteTo : canPromoteTo rook = true := rfl
+@[simp] theorem queen_canPromoteTo : canPromoteTo queen = true := rfl
+@[simp] theorem pawn_canPromoteTo : canPromoteTo pawn = false := rfl
+@[simp] theorem king_canPromoteTo : canPromoteTo king = false := rfl
+
+/-- A pawn may promote to any of four kinds. -/
+theorem promotionUniv_card : promotionUniv.card = 4 :=
+  rfl
+
+theorem mem_promotionUniv_iff (k : PieceKind) :
+    k ∈ promotionUniv ↔ canPromoteTo k = true := by
+  cases k <;> simp [promotionUniv]
 
 end PieceKind
 

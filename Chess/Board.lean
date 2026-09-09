@@ -59,6 +59,21 @@ def kingSquares (b : Board) (c : Color) : Finset Square :=
   Finset.univ.filter fun s =>
     (b s).map (fun p => (p.color, p.kind)) = some (c, .king)
 
+/-- Place `p` on `s`, replacing whatever stood there. -/
+def place (b : Board) (s : Square) (p : Piece) : Board :=
+  fun x => if x = s then some p else b x
+
+/-- Vacate `s`. -/
+def clear (b : Board) (s : Square) : Board :=
+  fun x => if x = s then none else b x
+
+/-- Move the piece `p` from `src` to `dst`, leaving `src` empty. -/
+def relocate (b : Board) (src dst : Square) (p : Piece) : Board :=
+  fun x =>
+    if x = dst then some p
+    else if x = src then none
+    else b x
+
 /-- A board places at most one piece on each square: the value at a
 square is a single optional piece. -/
 theorem at_most_one_piece_per_square (b : Board) (s : Square) {p q : Piece}

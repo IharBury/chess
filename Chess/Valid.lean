@@ -39,6 +39,10 @@ def attacks (b : Board) (s t : Square) : Bool :=
         decide (∃ u : Square, Between s t u ∧ (b u).isSome = true)
     geo && !blocked
 
+/-- Whether square `t` is attacked by at least one piece of color `c`. -/
+def isAttackedBy (b : Board) (c : Color) (t : Square) : Bool :=
+  decide (∃ s : Square, (b s).map (·.color) = some c ∧ b.attacks s t = true)
+
 /-- Whether a king of color `c` occupies a square attacked by the
 opposite color. -/
 def kingIsAttacked (b : Board) (c : Color) : Bool :=

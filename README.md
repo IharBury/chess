@@ -3,7 +3,8 @@
 A [Lean 4](https://lean-lang.org) library of definitions and proofs about chess.
 
 The board, pieces, empty-board attack geometry, full positions
-(side to move, castling rights, and en passant), game states
+(side to move, castling rights, and en passant), legal moves of a
+position (promotions to different pieces counted separately), game states
 (current position plus historical positions), and finished games
 (position history, player declarations, technical ends, and outcomes) are specified as Lean
 types and predicates. Theorems in the library are machine-checked: `lake build`
@@ -43,6 +44,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.Valid` | Occupied-board attacks and whether a placement is valid |
 | `Chess.Position` | Board, side to move, castling rights, and en passant |
 | `Chess.PositionValid` | Whether a position is valid |
+| `Chess.Move` | Moves, playing a move, and the legal moves of a position |
 | `Chess.GameState` | Current position and all historical positions |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes |
 
@@ -56,6 +58,7 @@ Sample facts already in the library:
 * the starting position is a valid board; adjacent kings (both in check) are not
 * the standard starting position is a valid position (`Position.starting_valid`): White to move, all four castling rights with king and rook at home, and no en passant
 * a position is invalid if the opponent is in check, a castling right has king or rook off their starting squares, or en passant does not match a capturable two-square pawn jump
+* the starting position has 20 legal moves; promoting a pawn to a queen is a different move from promoting it to a rook
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history; its current position is the standard starting position
 * a finished game records every position, player declarations (repetition claim, resignation, draw proposals with proposer and turn, acceptance), technical termination (including the timer), and who won or a draw
