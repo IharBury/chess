@@ -49,6 +49,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.Check` | Whether the player to move is in check or double check |
 | `Chess.Move` | Moves, playing a move, and the legal moves of a position |
 | `Chess.Checkmate` | Whether the player to move is checkmated |
+| `Chess.TwoKings` | Two kings alone cannot reach checkmate |
 | `Chess.Stalemate` | Whether the player to move is stalemated |
 | `Chess.GameState` | Current position and all historical positions |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes |
@@ -67,6 +68,7 @@ Sample facts already in the library:
 * double check is check by two or more pieces at once (`Position.inDoubleCheck`); a single checker is not, and blocking one of two rays leaves only a single check
 * the starting position has 20 legal moves; promoting a pawn to a queen is a different move from promoting it to a rook
 * checkmate is check with no legal move (`Position.inCheckmate`); a king that can flee, and a stalemate (no legal move, not in check), are not
+* a valid position with only two kings is never checkmate, and no sequence of legal moves from it is checkmate (`twoKings_reachable_not_inCheckmate`)
 * stalemate is no legal move without check (`Position.inStalemate`); checkmate, and a king that can flee, are not
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history; its current position is the standard starting position

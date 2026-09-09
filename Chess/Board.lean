@@ -59,6 +59,58 @@ def kingSquares (b : Board) (c : Color) : Finset Square :=
   Finset.univ.filter fun s =>
     (b s).map (fun p => (p.color, p.kind)) = some (c, .king)
 
+theorem mem_occupied (b : Board) (s : Square) :
+    s ∈ b.occupied ↔ (b s).isSome = true := by
+  simp only [occupied, Finset.mem_filter, Finset.mem_univ, true_and]
+
+theorem mem_occupiedBy (b : Board) (c : Color) (s : Square) :
+    s ∈ b.occupiedBy c ↔ (b s).map (·.color) = some c := by
+  simp only [occupiedBy, Finset.mem_filter, Finset.mem_univ, true_and]
+
+theorem mem_kingSquares (b : Board) (c : Color) (s : Square) :
+    s ∈ b.kingSquares c ↔ b s = some { color := c, kind := .king } := by
+  unfold kingSquares
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+  cases h : b s with
+  | none => simp
+  | some p =>
+    rcases p with ⟨pc, pk⟩
+    simp
+
+theorem kingSquares_subset_occupiedBy (b : Board) (c : Color) :
+    b.kingSquares c ⊆ b.occupiedBy c := by
+  intro s hs
+  rw [mem_kingSquares] at hs
+  simp only [mem_occupiedBy, hs, Option.map_some]
+
+theorem occupiedBy_disjoint (b : Board) :
+    Disjoint (b.occupiedBy .white) (b.occupiedBy .black) := by
+  rw [Finset.disjoint_left]
+  intro s hsW hsB
+  simp only [mem_occupiedBy] at hsW hsB
+  cases h : b s with
+  | none =>
+    rw [h] at hsW
+    simp at hsW
+  | some p =>
+    rw [h] at hsW hsB
+    simp only [Option.map_some, Option.some.injEq] at hsW hsB
+    cases hsW.symm.trans hsB
+
+theorem occupied_eq_union (b : Board) :
+    b.occupied = b.occupiedBy .white ∪ b.occupiedBy .black := by
+  ext s
+  simp only [mem_occupied, Finset.mem_union, mem_occupiedBy]
+  cases h : b s with
+  | none => simp
+  | some p =>
+    cases hp : p.color <;> simp [hp]
+
+theorem occupied_card_eq_sum (b : Board) :
+    b.occupied.card =
+      (b.occupiedBy .white).card + (b.occupiedBy .black).card := by
+  rw [occupied_eq_union, Finset.card_union_of_disjoint (occupiedBy_disjoint b)]
+
 /-- Place `p` on `s`, replacing whatever stood there. -/
 def place (b : Board) (s : Square) (p : Piece) : Board :=
   fun x => if x = s then some p else b x
