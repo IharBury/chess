@@ -163,34 +163,26 @@ theorem ne_of_positions_ne {g₁ g₂ : FinishedGame}
 
 /-- A win for White from the starting game is not a draw. -/
 theorem starting_whiteWin_ne_draw :
-    ofGameState .starting false (.win .white) ≠ startingDraw := by
-  intro h
-  have := congrArg FinishedGame.outcome h
-  simp [GameOutcome.win_ne_draw] at this
+    ofGameState .starting false (.win .white) ≠ startingDraw :=
+  ne_of_outcome_ne (GameOutcome.win_ne_draw _)
 
 /-- A win for White is not a win for Black. -/
 theorem starting_whiteWin_ne_blackWin :
     ofGameState .starting false (.win .white) ≠
-      ofGameState .starting false (.win .black) := by
-  intro h
-  have := congrArg FinishedGame.outcome h
-  simp [GameOutcome.win_white_ne_win_black] at this
+      ofGameState .starting false (.win .black) :=
+  ne_of_outcome_ne GameOutcome.win_white_ne_win_black
 
 /-- Claiming a draw by repetition yields a different finished game from
 one that records no such claim, even when the positions and outcome agree. -/
 theorem starting_claimedRepetition_ne :
-    ofGameState .starting true .draw ≠ startingDraw := by
-  intro h
-  have := congrArg FinishedGame.claimedDrawByRepetition h
-  simp at this
+    ofGameState .starting true .draw ≠ startingDraw :=
+  ne_of_claimedDrawByRepetition_ne (by decide)
 
 /-- Advancing the underlying game yields a different finished game. -/
 theorem ofGameState_advance_ne (p : Position) (c : Bool) (o : GameOutcome) :
     ofGameState (GameState.starting.advance p) c o ≠
-      ofGameState .starting c o := by
-  intro h
-  have := congrArg FinishedGame.positions h
-  simp [GameState.advance_positions] at this
+      ofGameState .starting c o :=
+  ne_of_positions_ne (by simp [GameState.advance_positions])
 
 end FinishedGame
 
