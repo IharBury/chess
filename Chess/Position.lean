@@ -77,6 +77,38 @@ def blackKingside : CastlingRight := ⟨.black, .kingside⟩
 /-- Black's queenside castling privilege. -/
 def blackQueenside : CastlingRight := ⟨.black, .queenside⟩
 
+/-- Starting square of this player's king. -/
+def kingSquare (r : CastlingRight) : Square :=
+  match r.color with
+  | .white => Square.e1
+  | .black => Square.e8
+
+/-- Starting square of the rook that participates in this privilege. -/
+def rookSquare (r : CastlingRight) : Square :=
+  match r.color, r.side with
+  | .white, .kingside => Square.h1
+  | .white, .queenside => Square.a1
+  | .black, .kingside => Square.h8
+  | .black, .queenside => Square.a8
+
+@[simp] theorem whiteKingside_kingSquare :
+    whiteKingside.kingSquare = Square.e1 := rfl
+@[simp] theorem whiteQueenside_kingSquare :
+    whiteQueenside.kingSquare = Square.e1 := rfl
+@[simp] theorem blackKingside_kingSquare :
+    blackKingside.kingSquare = Square.e8 := rfl
+@[simp] theorem blackQueenside_kingSquare :
+    blackQueenside.kingSquare = Square.e8 := rfl
+
+@[simp] theorem whiteKingside_rookSquare :
+    whiteKingside.rookSquare = Square.h1 := rfl
+@[simp] theorem whiteQueenside_rookSquare :
+    whiteQueenside.rookSquare = Square.a1 := rfl
+@[simp] theorem blackKingside_rookSquare :
+    blackKingside.rookSquare = Square.h8 := rfl
+@[simp] theorem blackQueenside_rookSquare :
+    blackQueenside.rookSquare = Square.a8 := rfl
+
 end CastlingRight
 
 /-- Remaining castling privileges of both players.
