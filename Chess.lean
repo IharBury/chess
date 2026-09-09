@@ -9,6 +9,7 @@ import Chess.PositionValid
 import Chess.Check
 import Chess.Move
 import Chess.Checkmate
+import Chess.Stalemate
 import Chess.GameState
 import Chess.FinishedGame
 
@@ -31,6 +32,7 @@ without circular imports:
 * `Chess.Check` — whether the player to move is in check or double check
 * `Chess.Move` — moves (including distinct promotions), playing them, and legal-move enumeration
 * `Chess.Checkmate` — whether the player to move is checkmated
+* `Chess.Stalemate` — whether the player to move is stalemated
 * `Chess.GameState` — current position together with the historical positions
 * `Chess.FinishedGame` — completed games: positions, declarations, technical ends, and outcomes
 -/
