@@ -201,4 +201,121 @@ theorem between_a1_a8 :
       ¬ Between Square.a1 Square.a8 Square.h1 := by
   decide
 
+/-- Bishop attack is symmetric. -/
+theorem bishopAttacks_symmetric {s t : Square} :
+    BishopAttacks s t ↔ BishopAttacks t s := by
+  revert s t
+  native_decide
+
+/-- A bishop does not attack a square of the opposite color. -/
+theorem not_bishopAttacks_of_color_ne {s t : Square}
+    (h : s.color ≠ t.color) : ¬ BishopAttacks s t :=
+  mt bishopAttacks_same_color h
+
+/-- Orthogonal adjacency: one file or one rank away, not both. -/
+def OrthogonalAdjacent (s t : Square) : Prop :=
+  (s.file = t.file ∧ (Square.deltaRank s t).natAbs = 1) ∨
+    (s.rank = t.rank ∧ (Square.deltaFile s t).natAbs = 1)
+
+instance {s t : Square} : Decidable (OrthogonalAdjacent s t) := by
+  unfold OrthogonalAdjacent
+  infer_instance
+
+/-- An orthogonal neighbor is a king-move. -/
+theorem orthoAdj_kingAttacks {s t : Square} (h : OrthogonalAdjacent s t) :
+    KingAttacks s t := by
+  revert s t
+  native_decide
+
+/-- Orthogonal neighbors have opposite square-colors. -/
+theorem orthoAdj_color {s t : Square} (h : OrthogonalAdjacent s t) :
+    t.color = s.color.other := by
+  revert s t
+  native_decide
+
+/-- A bishop that checks a square cannot attack an orthogonal neighbor of
+that square: those neighbors have the opposite color. -/
+theorem orthoAdj_not_bishopAttacks {k t b : Square}
+    (ho : OrthogonalAdjacent k t) (hatt : BishopAttacks b k) :
+    ¬ BishopAttacks b t := by
+  intro hbt
+  have hbk : b.color = k.color := bishopAttacks_same_color hatt
+  have hbt' : b.color = t.color := bishopAttacks_same_color hbt
+  have ht : t.color = k.color.other := orthoAdj_color ho
+  rw [hbk, ht] at hbt'
+  exact Color.other_ne k.color hbt'.symm
+
+/-- Orthogonal adjacency is irreflexive. -/
+theorem orthoAdj_ne {s t : Square} (h : OrthogonalAdjacent s t) : s ≠ t := by
+  intro heq
+  subst heq
+  cases h with
+  | inl hfr =>
+    have : (Square.deltaRank s s).natAbs = 1 := hfr.2
+    simp at this
+  | inr hrf =>
+    have : (Square.deltaFile s s).natAbs = 1 := hrf.2
+    simp at this
+
+/-- The one-file neighbor of `s`: toward the h-file, or toward `g` on the
+h-file. Every square has such a neighbor. -/
+def horizNeighbor (s : Square) : Square :=
+  if h : s.file.val < 7 then
+    ⟨⟨s.file.val + 1, by omega⟩, s.rank⟩
+  else
+    ⟨⟨s.file.val - 1, by omega⟩, s.rank⟩
+
+/-- The one-rank neighbor of `s`: toward the eighth rank, or toward the
+seventh rank on the eighth. Every square has such a neighbor. -/
+def vertNeighbor (s : Square) : Square :=
+  if h : s.rank.val < 7 then
+    ⟨s.file, ⟨s.rank.val + 1, by omega⟩⟩
+  else
+    ⟨s.file, ⟨s.rank.val - 1, by omega⟩⟩
+
+theorem horizNeighbor_ortho (s : Square) :
+    OrthogonalAdjacent s (horizNeighbor s) := by
+  revert s
+  native_decide
+
+theorem vertNeighbor_ortho (s : Square) :
+    OrthogonalAdjacent s (vertNeighbor s) := by
+  revert s
+  native_decide
+
+theorem horizNeighbor_ne_vertNeighbor (s : Square) :
+    horizNeighbor s ≠ vertNeighbor s := by
+  revert s
+  native_decide
+
+/-- A king-step onto an orthogonal neighbor of `k` that is not attacked
+by the king on `w`. Prefer the horizontal neighbor; if that is attacked,
+use the vertical neighbor. -/
+def kingOrthoEscape (k w : Square) : Square :=
+  if KingAttacks w (horizNeighbor k) then vertNeighbor k else horizNeighbor k
+
+theorem kingOrthoEscape_ortho (k w : Square) :
+    OrthogonalAdjacent k (kingOrthoEscape k w) := by
+  revert k w
+  native_decide
+
+/-- If the other king is not adjacent, it cannot cover both the
+horizontal and the vertical neighbor of `k`. -/
+theorem kingOrthoEscape_not_kingAttacks (k w : Square) :
+    w ≠ k → ¬ KingAttacks w k → ¬ KingAttacks w (kingOrthoEscape k w) := by
+  revert k w
+  native_decide
+
+theorem kingOrthoEscape_ne_self (k w : Square) :
+    kingOrthoEscape k w ≠ k :=
+  (orthoAdj_ne (kingOrthoEscape_ortho k w)).symm
+
+theorem kingOrthoEscape_ne_other (k w : Square) :
+    ¬ KingAttacks w k → kingOrthoEscape k w ≠ w := by
+  intro hna heq
+  have : KingAttacks k w := by
+    rw [← heq]
+    exact orthoAdj_kingAttacks (kingOrthoEscape_ortho k w)
+  exact hna (kingAttacks_symmetric.mp this)
+
 end Chess
