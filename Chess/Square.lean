@@ -99,6 +99,7 @@ theorem color_eq_iff (s t : Square) :
 /-- Named squares used in theorems. -/
 def a1 : Square := ⟨0, 0⟩
 def c2 : Square := ⟨2, 1⟩
+def c3 : Square := ⟨2, 2⟩
 def d1 : Square := ⟨3, 0⟩
 def d2 : Square := ⟨3, 1⟩
 def d4 : Square := ⟨3, 3⟩
