@@ -150,18 +150,34 @@ theorem starting_opponent_not_attacked :
     starting.board.kingIsAttacked starting.toMove.other = false :=
   Board.starting_kings_not_attacked .black
 
+/-- In the starting placement, each castling privilege has its king and
+rook on their starting squares. -/
+theorem starting_castling_pieces (r : CastlingRight) :
+    starting.board r.kingSquare = some { color := r.color, kind := .king } ∧
+      starting.board r.rookSquare = some { color := r.color, kind := .rook } := by
+  rcases r with ⟨c, side⟩
+  cases c <;> cases side <;> simp [CastlingRight.kingSquare, CastlingRight.rookSquare]
+
 /-- All four starting castling privileges have king and rook at home. -/
-theorem starting_castlingOk : starting.castlingOk = true := by
-  native_decide
+theorem starting_castling_home :
+    ∀ r ∈ starting.castling,
+      starting.board r.kingSquare = some { color := r.color, kind := .king } ∧
+        starting.board r.rookSquare = some { color := r.color, kind := .rook } :=
+  fun r _ => starting_castling_pieces r
+
+theorem starting_castlingOk : starting.castlingOk = true :=
+  (castlingOk_iff starting).mpr starting_castling_home
 
 @[simp] theorem starting_enPassantOk : starting.enPassantOk = true :=
   rfl
 
-/-- The standard starting position is valid. -/
+/-- The standard starting position is a valid position: valid board,
+Black's king not under attack, all four castling rights with king and
+rook at home, and no en passant. -/
 theorem starting_valid : Valid starting :=
   ⟨Board.starting_valid,
     starting_opponent_not_attacked,
-    (castlingOk_iff starting).mp starting_castlingOk,
+    starting_castling_home,
     starting_enPassantOk⟩
 
 theorem starting_isValid : isValid starting = true :=

@@ -41,6 +41,8 @@ def starting : Board := fun s =>
 @[simp] theorem starting_e8 : starting Square.e8 = some { color := .black, kind := .king } := rfl
 @[simp] theorem starting_a1 : starting Square.a1 = some { color := .white, kind := .rook } := rfl
 @[simp] theorem starting_h1 : starting Square.h1 = some { color := .white, kind := .rook } := rfl
+@[simp] theorem starting_a8 : starting Square.a8 = some { color := .black, kind := .rook } := rfl
+@[simp] theorem starting_h8 : starting Square.h8 = some { color := .black, kind := .rook } := rfl
 @[simp] theorem starting_d1 : starting Square.d1 = some { color := .white, kind := .queen } := rfl
 @[simp] theorem starting_d4 : starting Square.d4 = none := rfl
 

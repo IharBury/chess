@@ -54,7 +54,7 @@ Sample facts already in the library:
 * `a1` is a black square; opposite corners have the same color
 * the starting position has 32 pieces, 16 per side, with unique kings on `e1` and `e8`
 * the starting position is a valid board; adjacent kings (both in check) are not
-* the starting game position is a valid position (White to move, all four castling rights, no en passant)
+* the standard starting position is a valid position (`Position.starting_valid`): White to move, all four castling rights with king and rook at home, and no en passant
 * a position is invalid if the opponent is in check, a castling right has king or rook off their starting squares, or en passant does not match a capturable two-square pawn jump
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history; its current position is the standard starting position
