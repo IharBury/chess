@@ -26,7 +26,7 @@ without circular imports:
 * `Chess.Valid` — occupied-board attacks and whether a placement is valid
 * `Chess.Position` — board, side to move, castling rights, and en passant
 * `Chess.PositionValid` — whether a position (board, turn, castling, en passant) is valid
-* `Chess.Check` — whether the player to move is in check
+* `Chess.Check` — whether the player to move is in check or double check
 * `Chess.GameState` — current position together with the historical positions
 * `Chess.FinishedGame` — completed games: positions, declarations, technical ends, and outcomes
 -/

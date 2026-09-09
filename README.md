@@ -43,7 +43,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.Valid` | Occupied-board attacks and whether a placement is valid |
 | `Chess.Position` | Board, side to move, castling rights, and en passant |
 | `Chess.PositionValid` | Whether a position is valid |
-| `Chess.Check` | Whether the player to move is in check |
+| `Chess.Check` | Whether the player to move is in check or double check |
 | `Chess.GameState` | Current position and all historical positions |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes |
 
@@ -58,6 +58,7 @@ Sample facts already in the library:
 * the standard starting position is a valid position (`Position.starting_valid`): White to move, all four castling rights with king and rook at home, and no en passant
 * a position is invalid if the opponent is in check, a castling right has king or rook off their starting squares, or en passant does not match a capturable two-square pawn jump
 * the starting position is not in check; a rook, knight, bishop, queen, pawn, or king attack on the player to move is check; a blocked sliding ray is not
+* double check is check by two or more pieces at once (`Position.inDoubleCheck`); a single checker is not, and blocking one of two rays leaves only a single check
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history; its current position is the standard starting position
 * a finished game records every position, player declarations (repetition claim, resignation, draw proposals with proposer and turn, acceptance), technical termination (including the timer), and who won or a draw
@@ -73,5 +74,6 @@ Sample facts already in the library:
    not account for pins. Occupied-board attacks (`Board.attacks`) do
    account for blocking pieces and are what `Board.isValid` uses for check,
    what `Position.isValid` uses to require that the opponent's king is
-   not under attack, and what `Position.inCheck` uses for the player to move.
+   not under attack, and what `Position.inCheck` / `Position.inDoubleCheck`
+   use for the player to move.
 3. Run `lake build` before opening a pull request.

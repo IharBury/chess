@@ -98,6 +98,7 @@ theorem color_eq_iff (s t : Square) :
 
 /-- Named squares used in theorems. -/
 def a1 : Square := ⟨0, 0⟩
+def a4 : Square := ⟨0, 3⟩
 def c2 : Square := ⟨2, 1⟩
 def c3 : Square := ⟨2, 2⟩
 def d1 : Square := ⟨3, 0⟩
@@ -114,6 +115,7 @@ def e7 : Square := ⟨4, 6⟩
 def e8 : Square := ⟨4, 7⟩
 def f4 : Square := ⟨5, 3⟩
 def f5 : Square := ⟨5, 4⟩
+def f6 : Square := ⟨5, 5⟩
 def h1 : Square := ⟨7, 0⟩
 def b3 : Square := ⟨1, 2⟩
 def a8 : Square := ⟨0, 7⟩

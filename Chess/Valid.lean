@@ -39,11 +39,48 @@ def attacks (b : Board) (s t : Square) : Bool :=
         decide (∃ u : Square, Between s t u ∧ (b u).isSome = true)
     geo && !blocked
 
+/-- Squares occupied by pieces of color `c` that attack `t`. -/
+def attackers (b : Board) (c : Color) (t : Square) : Finset Square :=
+  Finset.univ.filter fun s =>
+    (b s).map (·.color) = some c ∧ b.attacks s t = true
+
+theorem mem_attackers (b : Board) (c : Color) (s t : Square) :
+    s ∈ b.attackers c t ↔
+      (b s).map (·.color) = some c ∧ b.attacks s t = true := by
+  simp [attackers]
+
 /-- Whether a king of color `c` occupies a square attacked by the
 opposite color. -/
 def kingIsAttacked (b : Board) (c : Color) : Bool :=
   decide (∃ t ∈ b.kingSquares c, ∃ s : Square,
     (b s).map (·.color) = some c.other ∧ b.attacks s t = true)
+
+/-- Whether a king of color `c` occupies a square attacked by two or
+more opposing pieces. -/
+def kingIsDoubleAttacked (b : Board) (c : Color) : Bool :=
+  decide (∃ t ∈ b.kingSquares c, 2 ≤ (b.attackers c.other t).card)
+
+theorem kingIsAttacked_iff_mem_attackers (b : Board) (c : Color) :
+    b.kingIsAttacked c = true ↔
+      ∃ t ∈ b.kingSquares c, ∃ s, s ∈ b.attackers c.other t := by
+  simp [kingIsAttacked, mem_attackers]
+
+theorem kingIsDoubleAttacked_iff (b : Board) (c : Color) :
+    b.kingIsDoubleAttacked c = true ↔
+      ∃ t ∈ b.kingSquares c, 2 ≤ (b.attackers c.other t).card := by
+  simp [kingIsDoubleAttacked]
+
+/-- Double attack on a king is a special case of being attacked. -/
+theorem kingIsDoubleAttacked_implies_kingIsAttacked
+    (b : Board) (c : Color) (h : b.kingIsDoubleAttacked c = true) :
+    b.kingIsAttacked c = true := by
+  rw [kingIsDoubleAttacked_iff] at h
+  rw [kingIsAttacked_iff_mem_attackers]
+  obtain ⟨t, ht, hcard⟩ := h
+  have hpos : 0 < (b.attackers c.other t).card :=
+    Nat.lt_of_lt_of_le (by decide : (0 : ℕ) < 2) hcard
+  obtain ⟨s, hs⟩ := Finset.card_pos.mp hpos
+  exact ⟨t, ht, s, hs⟩
 
 /-- Whether a pawn occupies the first or last rank on this square. -/
 def isPawnOnBackRank (b : Board) (s : Square) : Bool :=
