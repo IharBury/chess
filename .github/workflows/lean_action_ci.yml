@@ -2,12 +2,35 @@ name: Lean Action CI
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+# One run per PR (or branch); cancel superseded pushes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+
+      # Key on toolchain + lockfile, not github.sha. lean-action's default
+      # cache embeds the commit hash, so every run saved a fresh ~2.4 GB
+      # entry and exhausted the 10 GB repo quota within a few PRs.
+      - uses: actions/cache@v5
+        with:
+          path: .lake/packages
+          key: lake-packages-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json') }}
+
       - uses: leanprover/lean-action@v1
+        with:
+          use-github-cache: false
+          use-mathlib-cache: true
