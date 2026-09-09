@@ -30,8 +30,9 @@ instance {p : Position} : Decidable (InStalemate p) :=
 
 theorem inStalemate_eq_true_iff (p : Position) :
     p.inStalemate = true ↔ InStalemate p := by
-  simp [inStalemate, InStalemate, inCheck_eq_true_iff, beq_iff_eq,
-    Finset.card_eq_zero, Bool.not_eq_true']
+  simp only [inStalemate, InStalemate, Bool.and_eq_true, beq_iff_eq,
+    Finset.card_eq_zero]
+  rw [Bool.not_eq_true', ← inCheck_eq_true_iff, Bool.not_eq_true]
 
 /-- Stalemate is the absence of check together with every candidate move
 being illegal. -/
