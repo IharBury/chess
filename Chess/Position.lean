@@ -144,7 +144,7 @@ def kingTransitSquares (r : CastlingRight) : Finset Square :=
 
 /-- Whether every square the king or rook must pass through is empty. -/
 def pathClear (r : CastlingRight) (b : Board) : Bool :=
-  decide (∀ s ∈ r.clearSquares, b s = none)
+  decide (∀ s ∈ r.clearSquares, (b s).isNone = true)
 
 @[simp] theorem whiteKingside_kingDest :
     whiteKingside.kingDest = Square.g1 := rfl
