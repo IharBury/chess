@@ -5,7 +5,7 @@ A [Lean 4](https://lean-lang.org) library of definitions and proofs about chess.
 The board, pieces, empty-board attack geometry, full positions
 (side to move, castling rights, and en passant), game states
 (current position plus historical positions), and finished games
-(position history, repetition claims, and outcomes) are specified as Lean
+(position history, player declarations, and outcomes) are specified as Lean
 types and predicates. Theorems in the library are machine-checked: `lake build`
 fails if any of them stops being true of the definitions.
 
@@ -42,7 +42,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.Geometry` | Empty-board attacks (bishop, rook, queen, king, knight) |
 | `Chess.Position` | Board, side to move, castling rights, and en passant |
 | `Chess.GameState` | Current position and all historical positions |
-| `Chess.FinishedGame` | Completed games: positions, repetition claims, and outcomes |
+| `Chess.FinishedGame` | Completed games: positions, player declarations, and outcomes |
 
 Import the whole library with `import Chess`, or import a single module.
 
@@ -53,7 +53,7 @@ Sample facts already in the library:
 * the starting position has 32 pieces, 16 per side, with unique kings on `e1` and `e8`
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history; its current position is the standard starting position
-* a finished game records every position, whether a draw by repetition was claimed, and who won or a draw
+* a finished game records every position, player declarations (repetition claim, resignation, draw proposal/acceptance), and who won or a draw
 * White's win, Black's win, and a draw are three distinct outcomes
 * bishops stay on one square-color; knights always change square-color
 * a knight on `a1` attacks exactly `b3` and `c2`
