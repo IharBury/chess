@@ -227,6 +227,19 @@ def LegalSeq (p : Position) : List Move → Prop
   | [] => True
   | m :: ms => LegalMove p m ∧ LegalSeq (p.play m) ms
 
+def decidableLegalSeq (p : Position) : (ms : List Move) → Decidable (LegalSeq p ms)
+  | [] => isTrue trivial
+  | m :: ms =>
+    if h : LegalMove p m then
+      match decidableLegalSeq (p.play m) ms with
+      | .isTrue hms => isTrue ⟨h, hms⟩
+      | .isFalse hms => isFalse fun h' => hms h'.2
+    else
+      isFalse fun h' => h h'.1
+
+instance (p : Position) (ms : List Move) : Decidable (LegalSeq p ms) :=
+  decidableLegalSeq p ms
+
 theorem legalSeq_reachable {p : Position} :
     ∀ {ms : List Move}, LegalSeq p ms → Reachable p (playSeq p ms) := by
   intro ms

@@ -16,6 +16,7 @@ import Chess.SameColorBishops
 import Chess.Stalemate
 import Chess.GameState
 import Chess.Action
+import Chess.EndsGame
 import Chess.FinishedGame
 
 /-!
@@ -44,5 +45,6 @@ without circular imports:
 * `Chess.Stalemate` — whether the player to move is stalemated
 * `Chess.GameState` — current position, historical positions, and a pending draw offer
 * `Chess.Action` — legal actions of the player to move in an unfinished game
+* `Chess.EndsGame` — whether an action ends the game
 * `Chess.FinishedGame` — completed games: positions, declarations, technical ends, and outcomes
 -/
