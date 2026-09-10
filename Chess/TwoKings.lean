@@ -249,6 +249,23 @@ theorem legalSeq_reachable {p : Position} :
     intro ⟨hm, hms⟩
     exact Reachable.trans (Reachable.step m Reachable.refl hm) (ih hms)
 
+/-- Checkmate is reachable from `start` when some position legally
+reachable from it (including `start` itself) is checkmate. -/
+def CheckmateReachable (p : Position) : Prop :=
+  ∃ q, Reachable p q ∧ InCheckmate q
+
+/-- A checkmate position can reach checkmate: the empty sequence. -/
+theorem checkmateReachable_of_inCheckmate {p : Position}
+    (h : InCheckmate p) : CheckmateReachable p :=
+  ⟨p, Reachable.refl, h⟩
+
+/-- A legal sequence ending in checkmate is a witness that checkmate
+is reachable. -/
+theorem checkmateReachable_of_legalSeq {p : Position} {ms : List Move}
+    (hms : LegalSeq p ms) (hm : InCheckmate (playSeq p ms)) :
+    CheckmateReachable p :=
+  ⟨playSeq p ms, legalSeq_reachable hms, hm⟩
+
 theorem IsTwoKings.not_inCheck {p : Position} (h : IsTwoKings p) :
     p.inCheck = false := by
   obtain ⟨wk, bk, hne, hna, hboard, _, _⟩ := h
