@@ -132,12 +132,12 @@ theorem isValid_eq_true_iff (b : Board) : isValid b = true ↔ Valid b := by
     refine ⟨?kings, ?pieces, hp, ?check⟩
     · intro c
       cases c with
-      | .white => exact hkw
-      | .black => exact hkb
+      | white => exact hkw
+      | black => exact hkb
     · intro c
       cases c with
-      | .white => exact how
-      | .black => exact hob
+      | white => exact how
+      | black => exact hob
     · cases hchk with
       | inl h => exact ⟨.white, h⟩
       | inr h => exact ⟨.black, h⟩
@@ -146,8 +146,8 @@ theorem isValid_eq_true_iff (b : Board) : isValid b = true ↔ Valid b := by
       Bool.not_eq_true']
     refine ⟨⟨⟨⟨⟨hk .white, hk .black⟩, ho .white⟩, ho .black⟩, hp⟩, ?_⟩
     cases c with
-    | .white => exact Or.inl hc
-    | .black => exact Or.inr hc
+    | white => exact Or.inl hc
+    | black => exact Or.inr hc
 
 /-- Neither king is under attack in the starting position. -/
 theorem starting_kings_not_attacked (c : Color) :

@@ -151,8 +151,8 @@ theorem starting_kingSquares_black : starting.kingSquares .black = {Square.e8} :
 /-- Each side starts with exactly one king. -/
 theorem starting_kingSquares_card (c : Color) : (starting.kingSquares c).card = 1 := by
   cases c with
-  | .white => simp [starting_kingSquares_white]
-  | .black => simp [starting_kingSquares_black]
+  | white => simp [starting_kingSquares_white]
+  | black => simp [starting_kingSquares_black]
 
 /-- Whether the starting position has a white king on this square. -/
 def startingIsWhiteKing (s : Square) : Bool :=

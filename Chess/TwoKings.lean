@@ -231,8 +231,8 @@ theorem legalSeq_reachable {p : Position} :
     ∀ {ms : List Move}, LegalSeq p ms → Reachable p (playSeq p ms) := by
   intro ms
   induction ms generalizing p with
-  | .nil => intro _; exact Reachable.refl
-  | .cons m ms ih =>
+  | nil => intro _; exact Reachable.refl
+  | cons m ms ih =>
     intro ⟨hm, hms⟩
     exact Reachable.trans (Reachable.step m Reachable.refl hm) (ih hms)
 
@@ -242,11 +242,11 @@ theorem IsTwoKings.not_inCheck {p : Position} (h : IsTwoKings p) :
   unfold inCheck
   rw [hboard]
   cases p.toMove with
-  | .white =>
+  | white =>
     rw [Board.kingsBoard_kingIsAttacked_white wk bk hne]
     have : ¬ KingAttacks bk wk := mt kingAttacks_symmetric.mpr hna
     simp [this]
-  | .black =>
+  | black =>
     rw [Board.kingsBoard_kingIsAttacked_black wk bk hne]
     simp [hna]
 
@@ -376,12 +376,12 @@ theorem isTwoKings_of_valid {p : Position} (hv : Valid p)
         rw [eq_none_of_not_mem_occupied hsocc, Board.kingsBoard_other wk bk s hw hb]
   have hna : ¬ KingAttacks wk bk := by
     cases ht : p.toMove with
-    | .white =>
+    | white =>
       have hopp' : p.board.kingIsAttacked .black = false := by
         simpa [ht] using hopp
       rw [hboard, Board.kingsBoard_kingIsAttacked_black wk bk hne] at hopp'
       exact of_decide_eq_false hopp'
-    | .black =>
+    | black =>
       have hopp' : p.board.kingIsAttacked .white = false := by
         simpa [ht] using hopp
       rw [hboard, Board.kingsBoard_kingIsAttacked_white wk bk hne] at hopp'
@@ -503,7 +503,7 @@ theorem IsTwoKings.of_play {p : Position} {m : Move}
           rw [hplay]
       _ = none := enPassantAfter_king _ _ _
   cases ht : p.toMove with
-  | .white =>
+  | white =>
     have hsrcW : m.src = wk :=
       Board.kingsBoard_eq_white_king hne (by simpa [hboard, ht] using hsrcP)
     have hboard' : (p.play m).board = Board.kingsBoard m.dst bk := by
@@ -523,7 +523,7 @@ theorem IsTwoKings.of_play {p : Position} {m : Move}
       rw [hboard', Board.kingsBoard_kingIsAttacked_white m.dst bk hdstB] at hsafe'
       exact mt kingAttacks_symmetric.mpr (of_decide_eq_false hsafe')
     exact ⟨m.dst, bk, hdstB, hna', hboard', hcast', hep'⟩
-  | .black =>
+  | black =>
     have hsrcB : m.src = bk :=
       Board.kingsBoard_eq_black_king hne (by simpa [hboard, ht] using hsrcP)
     have hboard' : (p.play m).board = Board.kingsBoard wk m.dst := by
