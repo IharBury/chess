@@ -624,11 +624,11 @@ theorem kingKnight_escape_isLegalMove {p : Position} {wk bk ns : Square} {c : Co
     ((p.play m).board.kingIsAttacked p.toMove)
     hgeo rfl hsafe
 
-set_option linter.constructorNameAsVariable false
+-- So linters can traverse the remaining proofs' info trees.
+set_option maxRecDepth 1024
 
 theorem IsKingAndKnight.not_inCheckmate {p : Position} (h : IsKingAndKnight p) :
     p.inCheckmate = false := by
-  set_option maxRecDepth 1024 in
   obtain ⟨wk, bk, ns, c, hwk_bk, hwk_ns, hbk_ns, hna, hboard, _, _⟩ := h
   by_cases ht : p.toMove = c
   · exact not_inCheck_not_inCheckmate

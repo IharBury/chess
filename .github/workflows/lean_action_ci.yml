@@ -44,7 +44,20 @@ jobs:
           path: .lake/packages
           key: lake-packages-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json') }}
 
+      # `set_option linter.*` / `set_option warningAsError` would let a file
+      # silence the --wfail gate below. Ban those in source; fix warnings.
+      - name: Forbid warning-setting changes in source
+        run: |
+          set -euo pipefail
+          if grep -nE --include='*.lean' -R \
+               '^[[:space:]]*set_option[[:space:]]+(linter|warningAsError)\>' \
+               Chess Chess.lean; then
+            echo "::error::Source files must not change warning settings; fix the warnings instead."
+            exit 1
+          fi
+
       - uses: leanprover/lean-action@v1
         with:
           use-github-cache: false
           use-mathlib-cache: true
+          build-args: "--wfail"
