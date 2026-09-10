@@ -351,7 +351,7 @@ theorem IsKingAndKnight.knightToMove_not_inCheck {p : Position}
   unfold inCheck
   rw [hboard, ht]
   cases hc : c with
-  | white =>
+  | .white =>
     have hiff := Board.kingsKnightBoard_kingIsAttacked_white wk bk ns .white
       hwk_bk hwk_ns hbk_ns
     cases hAtt : (Board.kingsKnightBoard wk bk ns Color.white).kingIsAttacked Color.white
@@ -360,7 +360,7 @@ theorem IsKingAndKnight.knightToMove_not_inCheck {p : Position}
       rcases hP with hk | ⟨hcb, _⟩
       · exact (hna (kingAttacks_symmetric.mp hk)).elim
       · exact nomatch hcb
-  | black =>
+  | .black =>
     have hiff := Board.kingsKnightBoard_kingIsAttacked_black wk bk ns .black
       hwk_bk hwk_ns hbk_ns
     cases hAtt : (Board.kingsKnightBoard wk bk ns Color.black).kingIsAttacked Color.black
@@ -381,14 +381,14 @@ theorem IsKingAndKnight.inCheck_knightAttacks {p : Position}
   unfold inCheck at hchk
   rw [hboard, ht] at hchk
   cases c with
-  | white =>
+  | .white =>
     have hiff := Board.kingsKnightBoard_kingIsAttacked_black wk bk ns .white
       hwk_bk hwk_ns hbk_ns
     have hP := hiff.mp hchk
     rcases hP with hk | h
     · exact (hna hk).elim
     · exact h.2
-  | black =>
+  | .black =>
     have hiff := Board.kingsKnightBoard_kingIsAttacked_white wk bk ns .black
       hwk_bk hwk_ns hbk_ns
     have hP := hiff.mp hchk
@@ -404,9 +404,9 @@ theorem knEscape_not_kingAttacks (wk bk : Square) (c : Color)
     (hne : wk ≠ bk) (hna : ¬ KingAttacks wk bk) :
     ¬ KingAttacks (knSupport wk bk c) (knEscape wk bk c) := by
   cases c with
-  | white =>
+  | .white =>
     exact kingOrthoEscape_not_kingAttacks bk wk hne hna
-  | black =>
+  | .black =>
     exact kingOrthoEscape_not_kingAttacks wk bk hne.symm
       (mt kingAttacks_symmetric.mp hna)
 
@@ -418,8 +418,8 @@ theorem knEscape_ne_support (wk bk : Square) (c : Color)
     (hna : ¬ KingAttacks wk bk) :
     knEscape wk bk c ≠ knSupport wk bk c := by
   cases c with
-  | white => exact kingOrthoEscape_ne_other bk wk hna
-  | black =>
+  | .white => exact kingOrthoEscape_ne_other bk wk hna
+  | .black =>
     exact kingOrthoEscape_ne_other wk bk (mt kingAttacks_symmetric.mp hna)
 
 theorem knEscape_ne_knight {wk bk ns : Square} {c : Color}
@@ -434,15 +434,15 @@ theorem knEscape_ne_wk (wk bk : Square) (c : Color)
     (hna : ¬ KingAttacks wk bk) :
     knEscape wk bk c ≠ wk := by
   cases c with
-  | white => exact knEscape_ne_support wk bk .white hna
-  | black => exact knEscape_ne_lone wk bk .black
+  | .white => exact knEscape_ne_support wk bk .white hna
+  | .black => exact knEscape_ne_lone wk bk .black
 
 theorem knEscape_ne_bk (wk bk : Square) (c : Color)
     (hna : ¬ KingAttacks wk bk) :
     knEscape wk bk c ≠ bk := by
   cases c with
-  | white => exact knEscape_ne_lone wk bk .white
-  | black => exact knEscape_ne_support wk bk .black hna
+  | .white => exact knEscape_ne_lone wk bk .white
+  | .black => exact knEscape_ne_support wk bk .black hna
 
 theorem kingKnight_escape_src {p : Position} {wk bk ns : Square} {c : Color}
     (hwk_bk : wk ≠ bk)
@@ -451,9 +451,9 @@ theorem kingKnight_escape_src {p : Position} {wk bk ns : Square} {c : Color}
     p.board (knLone wk bk c) = some { color := p.toMove, kind := .king } := by
   rw [hboard, ht]
   cases c with
-  | white =>
+  | .white =>
     simpa [knLone] using Board.kingsKnightBoard_black wk bk ns Color.white hwk_bk
-  | black =>
+  | .black =>
     simpa [knLone] using Board.kingsKnightBoard_white wk bk ns Color.black
 
 theorem kingKnight_escape_dst {p : Position} {wk bk ns : Square} {c : Color}
@@ -549,7 +549,7 @@ theorem kingKnight_escape_safe {p : Position} {wk bk ns : Square} {c : Color}
   have hnn : ¬ KnightAttacks ns (knEscape wk bk c) :=
     orthoAdj_not_knightAttacks ho hattN
   cases c with
-  | white =>
+  | .white =>
     have hnb := kingKnight_play_escape_board_white hwk_bk hwk_ns hbk_ns hna
       hboard ht hattN hsrc hdst hpromo (by simpa [ht] using hside)
       (by simpa [ht] using hsrcP)
@@ -565,7 +565,7 @@ theorem kingKnight_escape_safe {p : Position} {wk bk ns : Square} {c : Color}
     · rcases hiff.mp hAtt with hk | ⟨_, hN⟩
       · exact (hnk hk).elim
       · exact (hnn hN).elim
-  | black =>
+  | .black =>
     have hnb := kingKnight_play_escape_board_black hwk_bk hwk_ns hbk_ns hna
       hboard ht hattN hsrc hdst hpromo (by simpa [ht] using hside)
       (by simpa [ht] using hsrcP)
@@ -623,8 +623,6 @@ theorem kingKnight_escape_isLegalMove {p : Position} {wk bk ns : Square} {c : Co
     ((Move.std (knLone wk bk c) (knEscape wk bk c)).promotion == none)
     ((p.play m).board.kingIsAttacked p.toMove)
     hgeo rfl hsafe
-
-set_option linter.constructorNameAsVariable false
 
 theorem IsKingAndKnight.not_inCheckmate {p : Position} (h : IsKingAndKnight p) :
     p.inCheckmate = false := by
@@ -1033,7 +1031,7 @@ theorem isKingAndKnight_of_valid {p : Position} (hv : Valid p)
   have hna : ¬ KingAttacks wk bk := by
     intro hk
     cases ht : p.toMove with
-    | white =>
+    | .white =>
       have hopp' : p.board.kingIsAttacked .black = false := by
         simpa [ht] using hopp
       have htrue : p.board.kingIsAttacked .black = true := by
@@ -1041,7 +1039,7 @@ theorem isKingAndKnight_of_valid {p : Position} (hv : Valid p)
         exact (Board.kingsKnightBoard_kingIsAttacked_black wk bk ns c
           hwk_bk hwk_ns hbk_ns).mpr (Or.inl hk)
       exact Bool.false_ne_true (hopp'.symm.trans htrue)
-    | black =>
+    | .black =>
       have hopp' : p.board.kingIsAttacked .white = false := by
         simpa [ht] using hopp
       have htrue : p.board.kingIsAttacked .white = true := by
