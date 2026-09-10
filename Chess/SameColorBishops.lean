@@ -714,11 +714,11 @@ theorem sameColorBishops_escape_isLegalMove {p : Position}
     ((p.play m).board.kingIsAttacked p.toMove)
     hgeo rfl hsafe
 
-set_option linter.constructorNameAsVariable false
+-- So linters can traverse the remaining proofs' info trees.
+set_option maxRecDepth 1024
 
 theorem IsSameColorBishops.not_inCheckmate {p : Position}
     (h : IsSameColorBishops p) : p.inCheckmate = false := by
-  set_option maxRecDepth 1024 in
   obtain ⟨wk, bk, wb, bb, hwk_bk, hwk_wb, hwk_bb, hbk_wb, hbk_bb, hwb_bb,
     hna, hsame, hboard, _, _⟩ := h
   have hsplit := bool_eq_false_or_true p.inCheck

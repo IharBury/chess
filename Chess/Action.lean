@@ -213,8 +213,8 @@ def legalActions (g : GameState) : Finset Action :=
     (if g.noProgress then {Action.claimNoProgress} else ∅) ∪
     (if g.drawProposed then {Action.acceptDraw} else ∅)
 
-set_option linter.unusedDecidableInType false in
-theorem mem_if_singleton {α} [DecidableEq α] {b : Bool} {x y : α} :
+open scoped Classical in
+theorem mem_if_singleton {α} {b : Bool} {x y : α} :
     y ∈ (if b then ({x} : Finset α) else ∅) ↔ b = true ∧ y = x := by
   cases b <;> simp
 
