@@ -17,8 +17,8 @@ attacking bishop's square-color, with its own bishop occupying a flight
 square of the other color and the attacking king covering the rest.
 
 `kingBishopsCheckmateReachable` decides which case a four-piece
-king-and-bishop versus king-and-bishop position is in: it is `true`
-exactly when the two bishops stand on opposite square-colors.
+king-and-bishop versus king-and-bishop position is in: it returns
+`isTrue` exactly when the two bishops stand on opposite square-colors.
 -/
 
 namespace Chess
@@ -300,8 +300,13 @@ theorem IsKingBishops.occupied_card {p : Position} (h : IsKingBishops p) :
     · simp [hwk_bk, hwk_wb, hwk_bb]
   rw [hocc, hcard]
 
-/-- Whether checkmate is reachable from a king-and-bishop versus
-king-and-bishop position.
+/-- Opposite-color white/black bishop pairs on `b`. -/
+def oppositeColorBishopPairs (b : Board) : Finset (Square × Square) :=
+  (b.bishopSquares .white ×ˢ b.bishopSquares .black).filter
+    fun pair => pair.1.color != pair.2.color
+
+/-- Checkmate is reachable from a king-and-bishop versus king-and-bishop
+position, as a proposition.
 
 The board must hold exactly four pieces, including a white bishop and a
 black bishop. Those bishops stay on one square-color, so checkmate is
@@ -309,14 +314,6 @@ reachable (by a helpmate, not necessarily forcible) exactly when they
 stand on opposite colors. Same-color bishops cannot mate, even after a
 capture reduces the material to king-and-bishop versus king or two
 kings. -/
-def kingBishopsCheckmateReachable (p : Position) : Bool :=
-  (p.board.occupied.card == 4) &&
-    decide
-      ((p.board.bishopSquares .white ×ˢ p.board.bishopSquares .black).filter
-          fun pair => pair.1.color != pair.2.color).Nonempty
-
-/-- Checkmate is reachable from a king-and-bishop versus king-and-bishop
-position, as a proposition. -/
 def KingBishopsCheckmateReachable (p : Position) : Prop :=
   p.board.occupied.card = 4 ∧
     ∃ wb bb : Square,
@@ -324,64 +321,58 @@ def KingBishopsCheckmateReachable (p : Position) : Prop :=
         p.board bb = some { color := .black, kind := .bishop } ∧
         wb.color ≠ bb.color
 
-theorem kingBishopsCheckmateReachable_eq_true_iff (p : Position) :
-    p.kingBishopsCheckmateReachable = true ↔ KingBishopsCheckmateReachable p := by
-  constructor
-  · intro h
-    have hbool := h
-    simp only [kingBishopsCheckmateReachable, Bool.and_eq_true, beq_iff_eq,
-      decide_eq_true_eq] at hbool
-    obtain ⟨hcard, hne⟩ := hbool
-    obtain ⟨⟨wb, bb⟩, hfilt⟩ := hne
-    simp only [Finset.mem_filter, Finset.mem_product, Board.mem_bishopSquares]
-      at hfilt
-    obtain ⟨⟨hwb, hbb⟩, hcolB⟩ := hfilt
-    have hcol : wb.color ≠ bb.color := by
-      simpa [bne_iff_ne] using hcolB
-    exact ⟨hcard, wb, bb, hwb, hbb, hcol⟩
-  · intro h
-    obtain ⟨hcard, hrest⟩ := h
-    obtain ⟨wb, hrest⟩ := hrest
-    obtain ⟨bb, hrest⟩ := hrest
-    obtain ⟨hwb, hrest⟩ := hrest
-    obtain ⟨hbb, hcol⟩ := hrest
-    have hne :
-        ((p.board.bishopSquares .white ×ˢ p.board.bishopSquares .black).filter
-            fun pair => pair.1.color != pair.2.color).Nonempty := by
-      refine ⟨⟨wb, bb⟩, ?_⟩
-      simp only [Finset.mem_filter, Finset.mem_product, Board.mem_bishopSquares]
-      exact ⟨⟨hwb, hbb⟩, by simp [bne_iff_ne, hcol]⟩
-    simp only [kingBishopsCheckmateReachable, Bool.and_eq_true, beq_iff_eq,
-      decide_eq_true_eq]
-    exact ⟨hcard, hne⟩
+/-- Decide whether checkmate is reachable from a king-and-bishop versus
+king-and-bishop position. -/
+def kingBishopsCheckmateReachable (p : Position) :
+    Decidable (KingBishopsCheckmateReachable p) :=
+  if hcard : p.board.occupied.card = 4 then
+    if hne : (oppositeColorBishopPairs p.board).Nonempty then
+      isTrue <| by
+        obtain ⟨⟨wb, bb⟩, hfilt⟩ := hne
+        simp only [oppositeColorBishopPairs, Finset.mem_filter, Finset.mem_product,
+          Board.mem_bishopSquares] at hfilt
+        obtain ⟨⟨hwb, hbb⟩, hcolB⟩ := hfilt
+        have hcol : wb.color ≠ bb.color := by
+          simpa [bne_iff_ne] using hcolB
+        exact ⟨hcard, wb, bb, hwb, hbb, hcol⟩
+    else
+      isFalse fun h => by
+        obtain ⟨_, hrest⟩ := h
+        obtain ⟨wb, hrest⟩ := hrest
+        obtain ⟨bb, hrest⟩ := hrest
+        obtain ⟨hwb, hrest⟩ := hrest
+        obtain ⟨hbb, hcol⟩ := hrest
+        have : (oppositeColorBishopPairs p.board).Nonempty := by
+          refine ⟨⟨wb, bb⟩, ?_⟩
+          simp only [oppositeColorBishopPairs, Finset.mem_filter, Finset.mem_product,
+            Board.mem_bishopSquares]
+          exact ⟨⟨hwb, hbb⟩, by simp [bne_iff_ne, hcol]⟩
+        exact hne this
+  else
+    isFalse fun h => hcard h.1
 
 instance {p : Position} : Decidable (KingBishopsCheckmateReachable p) :=
-  decidable_of_iff (p.kingBishopsCheckmateReachable = true)
-    (kingBishopsCheckmateReachable_eq_true_iff p)
+  kingBishopsCheckmateReachable p
 
-theorem IsOppositeColorBishops.kingBishopsCheckmateReachable_eq_true
+theorem IsOppositeColorBishops.kingBishopsCheckmateReachable
     {p : Position} (h : IsOppositeColorBishops p) :
-    p.kingBishopsCheckmateReachable = true := by
+    KingBishopsCheckmateReachable p := by
   obtain ⟨wk, bk, wb, bb, hwk_bk, hwk_wb, hwk_bb, hbk_wb, hbk_bb, hwb_bb,
     hna, hcol, hboard, hc, he⟩ := h
   have hkb : IsKingBishops p :=
     ⟨wk, bk, wb, bb, hwk_bk, hwk_wb, hwk_bb, hbk_wb, hbk_bb, hwb_bb, hna,
       hboard, hc, he⟩
-  refine (kingBishopsCheckmateReachable_eq_true_iff p).mpr
-    ⟨hkb.occupied_card, wb, bb, ?_, ?_, hcol⟩
+  refine ⟨hkb.occupied_card, wb, bb, ?_, ?_, hcol⟩
   · rw [hboard, Board.kingsBishopsBoard_whiteBishop wk bk wb bb hwk_wb hbk_wb]
   · rw [hboard, Board.kingsBishopsBoard_blackBishop wk bk wb bb hwk_bb hbk_bb
       hwb_bb]
 
-theorem IsSameColorBishops.kingBishopsCheckmateReachable_eq_false
+theorem IsSameColorBishops.not_KingBishopsCheckmateReachable
     {p : Position} (h : IsSameColorBishops p) :
-    p.kingBishopsCheckmateReachable = false := by
+    ¬ KingBishopsCheckmateReachable p := by
   obtain ⟨wk, bk, wb, bb, hwk_bk, hwk_wb, hwk_bb, hbk_wb, hbk_bb, hwb_bb,
     _, hsame, hboard, _, _⟩ := h
-  rw [Bool.eq_false_iff]
-  intro ht
-  have ⟨_, wb', bb', hwb', hbb', hcol⟩ :=
-    (kingBishopsCheckmateReachable_eq_true_iff p).mp ht
+  intro ⟨_, wb', bb', hwb', hbb', hcol⟩
   have hwbEq : wb' = wb :=
     Board.kingsBishopsBoard_eq_white_bishop (by rw [← hboard, hwb'])
   have hbbEq : bb' = bb :=
@@ -403,29 +394,28 @@ theorem deadPosition_of_isSameColorBishops {p : Position}
 /-- If the four-piece checker reports that checkmate is not reachable,
 then the bishops are on the same square-color (or the material is not
 king-and-bishop versus king-and-bishop). -/
-theorem not_CheckmateReachable_of_kingBishopsCheckmateReachable_false
+theorem not_CheckmateReachable_of_not_KingBishopsCheckmateReachable
     {p : Position} (h : IsKingBishops p)
-    (hf : p.kingBishopsCheckmateReachable = false) :
+    (hf : ¬ KingBishopsCheckmateReachable p) :
     ¬ CheckmateReachable p := by
   rcases h.same_or_opposite with hsame | hopp
   · exact hsame.not_CheckmateReachable
-  · exact (Bool.false_ne_true (hf.symm.trans hopp.kingBishopsCheckmateReachable_eq_true)).elim
+  · exact (hf hopp.kingBishopsCheckmateReachable).elim
 
 /-- A valid four-piece king-and-bishop versus king-and-bishop position
 has reachable checkmate iff the bishops stand on opposite square-colors. -/
-theorem kingBishopsCheckmateReachable_eq_true_iff_opposite {p : Position}
+theorem KingBishopsCheckmateReachable_iff_opposite {p : Position}
     (h : IsKingBishops p) :
-    p.kingBishopsCheckmateReachable = true ↔ IsOppositeColorBishops p := by
+    KingBishopsCheckmateReachable p ↔ IsOppositeColorBishops p := by
   constructor
   · intro ht
     rcases h.same_or_opposite with hsame | hopp
-    · exact (Bool.false_ne_true
-        (hsame.kingBishopsCheckmateReachable_eq_false.symm.trans ht)).elim
+    · exact (hsame.not_KingBishopsCheckmateReachable ht).elim
     · exact hopp
   · intro hopp
-    exact hopp.kingBishopsCheckmateReachable_eq_true
+    exact hopp.kingBishopsCheckmateReachable
 
-/-- Same-color bishops: the checker returns false, and checkmate is not
+/-- Same-color bishops: the checker is negative, and checkmate is not
 reachable. -/
 theorem kingBishops_sameColor_not_checkmateReachable {p : Position}
     (hv : Valid p) (hocc : p.board.occupied.card = 4)
@@ -435,12 +425,12 @@ theorem kingBishops_sameColor_not_checkmateReachable {p : Position}
       p.board s = some { color := .white, kind := .bishop } →
       p.board t = some { color := .black, kind := .bishop } →
       s.color = t.color) :
-    p.kingBishopsCheckmateReachable = false ∧ ¬ CheckmateReachable p := by
+    ¬ KingBishopsCheckmateReachable p ∧ ¬ CheckmateReachable p := by
   have hscb := isSameColorBishops_of_valid hv hocc hwb hbb hsame
-  exact ⟨hscb.kingBishopsCheckmateReachable_eq_false, hscb.not_CheckmateReachable⟩
+  exact ⟨hscb.not_KingBishopsCheckmateReachable, hscb.not_CheckmateReachable⟩
 
-/-- Opposite-color bishops: the checker returns true. -/
-theorem kingBishops_oppositeColor_checkmateReachable_eq_true {p : Position}
+/-- Opposite-color bishops: the checker is affirmative. -/
+theorem kingBishops_oppositeColor_KingBishopsCheckmateReachable {p : Position}
     (hv : Valid p) (hocc : p.board.occupied.card = 4)
     (hwb : ∃ s, p.board s = some { color := .white, kind := .bishop })
     (hbb : ∃ s, p.board s = some { color := .black, kind := .bishop })
@@ -448,8 +438,8 @@ theorem kingBishops_oppositeColor_checkmateReachable_eq_true {p : Position}
       p.board s = some { color := .white, kind := .bishop } →
       p.board t = some { color := .black, kind := .bishop } →
       s.color ≠ t.color) :
-    p.kingBishopsCheckmateReachable = true :=
-  (isOppositeColorBishops_of_valid hv hocc hwb hbb hopp).kingBishopsCheckmateReachable_eq_true
+    KingBishopsCheckmateReachable p :=
+  (isOppositeColorBishops_of_valid hv hocc hwb hbb hopp).kingBishopsCheckmateReachable
 
 /-! ### Examples -/
 
@@ -551,8 +541,8 @@ theorem oppositeColorBishopsMate_opposite_square_color {s t : Square}
   decide
 
 theorem oppositeColorBishopsMate_kingBishopsCheckmateReachable :
-    oppositeColorBishopsMate.kingBishopsCheckmateReachable = true :=
-  kingBishops_oppositeColor_checkmateReachable_eq_true
+    KingBishopsCheckmateReachable oppositeColorBishopsMate :=
+  kingBishops_oppositeColor_KingBishopsCheckmateReachable
     ((isValid_eq_true_iff oppositeColorBishopsMate).mp
       oppositeColorBishopsMate_isValid)
     oppositeColorBishopsMate_occupied_card
@@ -684,8 +674,8 @@ theorem oppositeColorBishopsBeforeMate_opposite_square_color {s t : Square}
   decide
 
 theorem oppositeColorBishopsBeforeMate_kingBishopsCheckmateReachable :
-    oppositeColorBishopsBeforeMate.kingBishopsCheckmateReachable = true :=
-  kingBishops_oppositeColor_checkmateReachable_eq_true
+    KingBishopsCheckmateReachable oppositeColorBishopsBeforeMate :=
+  kingBishops_oppositeColor_KingBishopsCheckmateReachable
     ((isValid_eq_true_iff oppositeColorBishopsBeforeMate).mp
       oppositeColorBishopsBeforeMate_isValid)
     oppositeColorBishopsBeforeMate_occupied_card
@@ -700,8 +690,8 @@ theorem oppositeColorBishopsBeforeMate_not_deadPosition :
 
 /-- Same-color bishops: the checker reports that checkmate is not
 reachable. -/
-theorem sameColorBishops_kingBishopsCheckmateReachable :
-    sameColorBishops.kingBishopsCheckmateReachable = false :=
+theorem sameColorBishops_not_KingBishopsCheckmateReachable :
+    ¬ KingBishopsCheckmateReachable sameColorBishops :=
   (kingBishops_sameColor_not_checkmateReachable
     ((isValid_eq_true_iff sameColorBishops).mp sameColorBishops_isValid)
     sameColorBishops_occupied_card
@@ -719,14 +709,14 @@ theorem sameColorBishops_not_CheckmateReachable :
     sameColorBishops_same_square_color).2
 
 /-- Two kings alone are not a king-and-bishop versus king-and-bishop
-position, so the checker is false. -/
-theorem kingsOnly_kingBishopsCheckmateReachable :
-    kingsOnly.kingBishopsCheckmateReachable = false := by
+position, so the checker is negative. -/
+theorem kingsOnly_not_KingBishopsCheckmateReachable :
+    ¬ KingBishopsCheckmateReachable kingsOnly := by
   native_decide
 
 /-- The starting position has 32 pieces, so it is not this material. -/
-theorem starting_kingBishopsCheckmateReachable :
-    starting.kingBishopsCheckmateReachable = false := by
+theorem starting_not_KingBishopsCheckmateReachable :
+    ¬ KingBishopsCheckmateReachable starting := by
   native_decide
 
 end Position

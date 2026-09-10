@@ -80,7 +80,7 @@ Sample facts already in the library:
 * a valid position with two kings and one bishop is never checkmate, and no sequence of legal moves from it is checkmate (`kingBishop_reachable_not_inCheckmate`)
 * a valid position with two kings and one knight is never checkmate, and no sequence of legal moves from it is checkmate (`kingKnight_reachable_not_inCheckmate`)
 * a valid position with two kings and two bishops on the same square-color is never checkmate, and no sequence of legal moves from it is checkmate (`sameColorBishops_reachable_not_inCheckmate`)
-* `kingBishopsCheckmateReachable` is true of four pieces including opposite-color bishops (a helpmate exists, for example `Bc6#` with kings on `a6`/`a8`) and false of same-color bishops, of two kings, and of the starting position
+* `kingBishopsCheckmateReachable` decides `KingBishopsCheckmateReachable`: affirmative for four pieces including opposite-color bishops (a helpmate exists, for example `Bc6#` with kings on `a6`/`a8`) and negative for same-color bishops, two kings, and the starting position
 * stalemate is no legal move without check (`Position.inStalemate`); checkmate, and a king that can flee, are not
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history, no pending draw offer, and its current position is the standard starting position
