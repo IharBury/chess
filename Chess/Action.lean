@@ -173,6 +173,34 @@ theorem not_claimsNoProgress_moveAndProposeDraw (m : Move) :
     ¬ ClaimsNoProgress (moveAndProposeDraw m) :=
   of_decide_eq_false (rfl : claimsNoProgress (moveAndProposeDraw m) = false)
 
+/-- Whether `a` is resignation. -/
+def surrenders : Action → Bool
+  | .surrender => true
+  | _ => false
+
+theorem surrenders_surrender : surrenders .surrender = true := rfl
+theorem not_surrenders_move (m : Move) : surrenders (move m) = false := rfl
+theorem not_surrenders_acceptDraw : surrenders .acceptDraw = false := rfl
+
+/-- Whether `a` accepts a pending draw offer. -/
+def acceptsDraw : Action → Bool
+  | .acceptDraw => true
+  | _ => false
+
+theorem acceptsDraw_acceptDraw : acceptsDraw .acceptDraw = true := rfl
+theorem not_acceptsDraw_surrender : acceptsDraw .surrender = false := rfl
+theorem not_acceptsDraw_move (m : Move) : acceptsDraw (move m) = false := rfl
+
+/-- Whether `a` offers a draw together with a move (FIDE Article 9.1.2). -/
+def proposesDraw : Action → Bool
+  | .moveAndProposeDraw _ => true
+  | _ => false
+
+theorem proposesDraw_moveAndProposeDraw (m : Move) :
+    proposesDraw (moveAndProposeDraw m) = true := rfl
+theorem not_proposesDraw_move (m : Move) : proposesDraw (move m) = false := rfl
+theorem not_proposesDraw_acceptDraw : proposesDraw .acceptDraw = false := rfl
+
 end Action
 
 namespace Board

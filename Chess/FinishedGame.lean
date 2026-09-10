@@ -1,4 +1,4 @@
-import Chess.GameState
+import Chess.EndsGame
 import Mathlib.Data.Fintype.Card
 
 /-!
@@ -17,7 +17,8 @@ player.
 
 Legality of the play, and consistency of the outcome with the positions
 and declarations (checkmate, stalemate, a well-founded repetition claim,
-flag fall, ...), are not checked here.
+flag fall, ...), are not checked here. `FinishedGame.ofAction` assembles
+a finished game from an unfinished state and an action that ends it.
 -/
 
 namespace Chess
@@ -413,6 +414,234 @@ theorem ofGameState_advance_ne (p : Position) (o : GameOutcome) :
     ofGameState (GameState.starting.advance p) o ≠
       ofGameState .starting o :=
   ne_of_positions_ne (by simp [GameState.advance_positions])
+
+/-! ### Finishing by an ending action -/
+
+open GameState
+
+/-- Positions after carrying out `a`: a played move is appended. -/
+def positionsAfter (g : GameState) (a : Action) : List Position :=
+  match a.move? with
+  | some m => g.positions ++ [g.current.play m]
+  | none => g.positions
+
+@[simp] theorem positionsAfter_none {g : GameState} {a : Action}
+    (h : a.move? = none) :
+    positionsAfter g a = g.positions := by
+  simp [positionsAfter, h]
+
+@[simp] theorem positionsAfter_some {g : GameState} {a : Action} {m : Move}
+    (h : a.move? = some m) :
+    positionsAfter g a = g.positions ++ [g.current.play m] := by
+  simp [positionsAfter, h]
+
+theorem positionsAfter_ne_nil (g : GameState) (a : Action) :
+    positionsAfter g a ≠ [] := by
+  cases h : a.move? with
+  | none => simp [positionsAfter, h, GameState.positions_ne_nil]
+  | some _ => simp [positionsAfter, h]
+
+/-- Outcome of ending the game by `a`.
+
+Resignation loses for the player to move. A draw claim or acceptance is
+a draw. A move that checkmates, including one offered with a draw, is a
+win for the player who moved. Every other ending (stalemate, a dead
+position, fivefold repetition, the 75-move rule) is a draw. -/
+def endingOutcome (g : GameState) : Action → GameOutcome
+  | .surrender => .win g.current.toMove.other
+  | .acceptDraw | .claimRepetition | .claimNoProgress
+  | .moveAndClaimRepetition _ | .moveAndClaimNoProgress _ => .draw
+  | .move m | .moveAndProposeDraw m =>
+      if (g.current.play m).inCheckmate then .win g.current.toMove else .draw
+
+/-- Draw proposals recorded when `a` ends the game: a pending offer,
+if any, and a new offer if `a` proposes with a move. The turn of a
+pending offer is `g.ply` (the ply after the offering move); a fresh offer
+is recorded at `g.ply + 1`. -/
+def drawProposalsAfter (g : GameState) (a : Action) : List DrawProposal :=
+  let pending : List DrawProposal :=
+    if g.drawProposed then
+      [{ proposer := g.current.toMove.other, turn := g.ply }]
+    else
+      []
+  if a.proposesDraw then
+    pending ++ [{ proposer := g.current.toMove, turn := g.ply + 1 }]
+  else
+    pending
+
+/-- Assemble a finished game from the unfinished game `g` by carrying out
+`a`, given that `a` ends the game.
+
+Positions include the resulting position when `a` plays a move.
+Declarations follow the action (resignation, a repetition claim,
+acceptance, a new draw offer). Player actions are not a technical
+termination. The outcome is `endingOutcome`. -/
+def ofAction (g : GameState) (a : Action) (_h : EndsGame g a) : FinishedGame where
+  positions := positionsAfter g a
+  claimedDrawByRepetition := a.claimsRepetition
+  resigned := a.surrenders
+  drawProposals := drawProposalsAfter g a
+  acceptedDraw := a.acceptsDraw
+  technical := none
+  outcome := endingOutcome g a
+
+@[simp] theorem ofAction_positions (g : GameState) (a : Action)
+    (h : EndsGame g a) :
+    (ofAction g a h).positions = positionsAfter g a := rfl
+
+@[simp] theorem ofAction_claimedDrawByRepetition (g : GameState) (a : Action)
+    (h : EndsGame g a) :
+    (ofAction g a h).claimedDrawByRepetition = a.claimsRepetition := rfl
+
+@[simp] theorem ofAction_resigned (g : GameState) (a : Action)
+    (h : EndsGame g a) :
+    (ofAction g a h).resigned = a.surrenders := rfl
+
+@[simp] theorem ofAction_drawProposals (g : GameState) (a : Action)
+    (h : EndsGame g a) :
+    (ofAction g a h).drawProposals = drawProposalsAfter g a := rfl
+
+@[simp] theorem ofAction_acceptedDraw (g : GameState) (a : Action)
+    (h : EndsGame g a) :
+    (ofAction g a h).acceptedDraw = a.acceptsDraw := rfl
+
+@[simp] theorem ofAction_technical (g : GameState) (a : Action)
+    (h : EndsGame g a) :
+    (ofAction g a h).technical = none := rfl
+
+@[simp] theorem ofAction_outcome (g : GameState) (a : Action)
+    (h : EndsGame g a) :
+    (ofAction g a h).outcome = endingOutcome g a := rfl
+
+theorem ofAction_positions_ne_nil (g : GameState) (a : Action)
+    (h : EndsGame g a) :
+    (ofAction g a h).positions ≠ [] :=
+  positionsAfter_ne_nil g a
+
+/-- Resigning at the start of the game: Black wins, and the game records
+the resignation. -/
+theorem starting_surrender_ofAction_outcome :
+    (ofAction .starting .surrender starting_surrender_endsGame).outcome =
+      .win .black :=
+  rfl
+
+theorem starting_surrender_ofAction_resigned :
+    (ofAction .starting .surrender starting_surrender_endsGame).resigned =
+      true :=
+  rfl
+
+theorem starting_surrender_ofAction_positions :
+    (ofAction .starting .surrender starting_surrender_endsGame).positions =
+      GameState.starting.positions :=
+  rfl
+
+/-- Resigning yields a different finished game from a win recorded without
+resignation. -/
+theorem starting_surrender_ofAction_ne_ofGameState :
+    ofAction .starting .surrender starting_surrender_endsGame ≠
+      ofGameState .starting (.win .black) :=
+  ne_of_resigned_ne (by decide)
+
+/-- Accepting a pending draw after `1. e4 e5` is a drawn game. -/
+theorem afterE2e4e7e5Offer_acceptDraw_ofAction_outcome :
+    (ofAction afterE2e4e7e5Offer .acceptDraw
+      afterE2e4e7e5Offer_acceptDraw_endsGame).outcome = .draw :=
+  rfl
+
+theorem afterE2e4e7e5Offer_acceptDraw_ofAction_accepted :
+    (ofAction afterE2e4e7e5Offer .acceptDraw
+      afterE2e4e7e5Offer_acceptDraw_endsGame).acceptedDraw = true :=
+  rfl
+
+theorem afterE2e4e7e5Offer_acceptDraw_ofAction_proposals :
+    (ofAction afterE2e4e7e5Offer .acceptDraw
+      afterE2e4e7e5Offer_acceptDraw_endsGame).drawProposals =
+      [{ proposer := .black, turn := 2 }] :=
+  rfl
+
+/-- Claiming threefold repetition records the claim and is a draw. -/
+theorem threefoldStarting_claimRepetition_ofAction_outcome :
+    (ofAction threefoldStarting .claimRepetition
+      (claimRepetition_endsGame _)).outcome = .draw :=
+  rfl
+
+theorem threefoldStarting_claimRepetition_ofAction_claimed :
+    (ofAction threefoldStarting .claimRepetition
+      (claimRepetition_endsGame _)).claimedDrawByRepetition = true :=
+  rfl
+
+/-- A fifty-move claim in a quiet two-king game is a draw and does not
+append a position. -/
+theorem kingsOnly_100_claimNoProgress_ofAction_outcome :
+    (ofAction (repeated kingsOnly 100) .claimNoProgress
+      (claimNoProgress_endsGame _)).outcome = .draw :=
+  rfl
+
+theorem kingsOnly_100_claimNoProgress_ofAction_positions :
+    (ofAction (repeated kingsOnly 100) .claimNoProgress
+      (claimNoProgress_endsGame _)).positions =
+      (repeated kingsOnly 100).positions :=
+  rfl
+
+/-- Claiming the fifty-move rule after a quiet king move appends that
+position and is a draw. -/
+theorem kingsOnly_99_moveAndClaimNoProgress_ofAction_outcome :
+    (ofAction (repeated kingsOnly 99)
+      (.moveAndClaimNoProgress (Move.std Square.e1 Square.d1))
+      (moveAndClaimNoProgress_endsGame _ _)).outcome = .draw :=
+  rfl
+
+theorem kingsOnly_99_moveAndClaimNoProgress_ofAction_positions :
+    (ofAction (repeated kingsOnly 99)
+      (.moveAndClaimNoProgress (Move.std Square.e1 Square.d1))
+      (moveAndClaimNoProgress_endsGame _ _)).positions =
+      (repeated kingsOnly 99).positions ++
+        [kingsOnly.play (Move.std Square.e1 Square.d1)] :=
+  rfl
+
+/-- Playing `Qh7` from `beforeQueenMate` is a win for White, and the
+mating position is the last recorded position. -/
+theorem beforeQueenMate_qh7_ofAction_outcome :
+    (ofAction beforeQueenMateGame
+      (Action.move (Move.std Square.h4 Square.h7))
+      beforeQueenMate_qh7_endsGame).outcome = .win .white := by
+  native_decide
+
+theorem beforeQueenMate_qh7_ofAction_positions :
+    (ofAction beforeQueenMateGame
+      (Action.move (Move.std Square.h4 Square.h7))
+      beforeQueenMate_qh7_endsGame).positions =
+      [beforeQueenMate,
+        beforeQueenMate.play (Move.std Square.h4 Square.h7)] :=
+  rfl
+
+/-- Playing `a6–a7` from `beforeStalemate` is a draw. -/
+theorem beforeStalemate_a7_ofAction_outcome :
+    (ofAction beforeStalemateGame
+      (Action.move (Move.std Square.a6 Square.a7))
+      beforeStalemate_a7_endsGame).outcome = .draw := by
+  native_decide
+
+/-- A king move with only two kings is a draw by dead position. -/
+theorem kingsOnly_e1d1_ofAction_outcome :
+    (ofAction kingsOnlyGame (Action.move (Move.std Square.e1 Square.d1))
+      kingsOnly_e1d1_endsGame).outcome = .draw := by
+  native_decide
+
+/-- Playing `e2–e4` into a fifth occurrence is a draw. -/
+theorem fivefoldBeforeE4_ofAction_outcome :
+    (ofAction fivefoldBeforeE4
+      (Action.move (Move.std Square.e2 Square.e4))
+      fivefoldBeforeE4_endsGame).outcome = .draw := by
+  native_decide
+
+/-- A quiet king move after 149 quiet plies is a draw by the 75-move
+rule. -/
+theorem kingsOnly_149_e1d1_ofAction_outcome :
+    (ofAction (repeated kingsOnly 149)
+      (Action.move (Move.std Square.e1 Square.d1))
+      kingsOnly_149_e1d1_endsGame).outcome = .draw := by
+  native_decide
 
 end FinishedGame
 
