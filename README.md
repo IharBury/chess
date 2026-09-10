@@ -7,7 +7,8 @@ The board, pieces, empty-board attack geometry, full positions
 legal moves of a
 position (promotions to different pieces counted separately), checkmate,
 stalemate, game states
-(current position plus historical positions), and finished games
+(current position, historical positions, and a pending draw offer),
+legal actions of the player to move, and finished games
 (position history, player declarations, technical ends, and outcomes) are specified as Lean
 types and predicates. Theorems in the library are machine-checked: `lake build`
 fails if any of them stops being true of the definitions.
@@ -54,7 +55,8 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.KingKnight` | King and knight versus king cannot reach checkmate |
 | `Chess.SameColorBishops` | Two kings and two same-color bishops cannot reach checkmate |
 | `Chess.Stalemate` | Whether the player to move is stalemated |
-| `Chess.GameState` | Current position and all historical positions |
+| `Chess.GameState` | Current position, historical positions, and a pending draw offer |
+| `Chess.Action` | Legal actions of the player to move in an unfinished game |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes |
 
 Import the whole library with `import Chess`, or import a single module.
@@ -77,7 +79,9 @@ Sample facts already in the library:
 * a valid position with two kings and two bishops on the same square-color is never checkmate, and no sequence of legal moves from it is checkmate (`sameColorBishops_reachable_not_inCheckmate`)
 * stalemate is no legal move without check (`Position.inStalemate`); checkmate, and a king that can flee, are not
 * the starting game position has White to move, all four castling rights, and no en passant capture
-* the starting game has an empty history; its current position is the standard starting position
+* the starting game has an empty history, no pending draw offer, and its current position is the standard starting position
+* the player to move may play a legal move, offer a draw with a move after the opponent has moved, resign, claim a draw by threefold repetition or the fifty-move rule (before or after a qualifying move), or accept a pending draw offer
+* the starting game has 21 legal actions (20 moves and resignation); White may not offer a draw on the first move; after `1. e4` Black may play and offer a draw
 * a finished game records every position, player declarations (repetition claim, resignation, draw proposals with proposer and turn, acceptance), technical termination (including the timer), and who won or a draw
 * White's win, Black's win, and a draw are three distinct outcomes
 * bishops stay on one square-color; knights always change square-color
