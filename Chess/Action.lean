@@ -74,6 +74,105 @@ theorem moveAndProposeDraw_ne_moveAndClaimRepetition (m₁ m₂ : Move) :
   intro h
   cases h
 
+/-- The move played by this action, if it plays one.
+
+Resignation, a claim in the current position, and accepting a draw do
+not play a move. -/
+def move? : Action → Option Move
+  | .move m | .moveAndProposeDraw m | .moveAndClaimRepetition m
+  | .moveAndClaimNoProgress m => some m
+  | .surrender | .claimRepetition | .claimNoProgress | .acceptDraw => none
+
+theorem move?_move (m : Move) : (move m).move? = some m := rfl
+theorem move?_moveAndProposeDraw (m : Move) :
+    (moveAndProposeDraw m).move? = some m := rfl
+theorem move?_moveAndClaimRepetition (m : Move) :
+    (moveAndClaimRepetition m).move? = some m := rfl
+theorem move?_moveAndClaimNoProgress (m : Move) :
+    (moveAndClaimNoProgress m).move? = some m := rfl
+theorem move?_surrender : surrender.move? = none := rfl
+theorem move?_claimRepetition : claimRepetition.move? = none := rfl
+theorem move?_claimNoProgress : claimNoProgress.move? = none := rfl
+theorem move?_acceptDraw : acceptDraw.move? = none := rfl
+
+/-- `a` plays the move `m`, possibly also offering a draw or claiming. -/
+def Plays (a : Action) (m : Move) : Prop :=
+  move? a = some m
+
+instance {a : Action} {m : Move} : Decidable (Plays a m) :=
+  inferInstanceAs (Decidable (_ = some m))
+
+theorem plays_move (m : Move) : (move m).Plays m := rfl
+theorem plays_moveAndProposeDraw (m : Move) :
+    (moveAndProposeDraw m).Plays m := rfl
+theorem plays_moveAndClaimRepetition (m : Move) :
+    (moveAndClaimRepetition m).Plays m := rfl
+theorem plays_moveAndClaimNoProgress (m : Move) :
+    (moveAndClaimNoProgress m).Plays m := rfl
+
+theorem plays_move_iff (m₁ m₂ : Move) : (move m₁).Plays m₂ ↔ m₁ = m₂ := by
+  simp [Plays, move?]
+
+/-- Whether `a` claims a draw by threefold repetition, either after a move
+or in the current position (FIDE Article 9.2). -/
+def claimsRepetition : Action → Bool
+  | .moveAndClaimRepetition _ | .claimRepetition => true
+  | _ => false
+
+/-- `a` claims a draw by threefold repetition, after a move or not. -/
+def ClaimsRepetition (a : Action) : Prop :=
+  claimsRepetition a = true
+
+instance {a : Action} : Decidable (ClaimsRepetition a) :=
+  inferInstanceAs (Decidable (_ = true))
+
+theorem claimsRepetition_claimRepetition :
+    ClaimsRepetition .claimRepetition := rfl
+theorem claimsRepetition_moveAndClaim (m : Move) :
+    ClaimsRepetition (moveAndClaimRepetition m) := rfl
+theorem not_claimsRepetition_move (m : Move) :
+    ¬ ClaimsRepetition (move m) :=
+  of_decide_eq_false (rfl : claimsRepetition (move m) = false)
+theorem not_claimsRepetition_surrender :
+    ¬ ClaimsRepetition .surrender :=
+  of_decide_eq_false (rfl : claimsRepetition .surrender = false)
+theorem not_claimsRepetition_acceptDraw :
+    ¬ ClaimsRepetition .acceptDraw :=
+  of_decide_eq_false (rfl : claimsRepetition .acceptDraw = false)
+theorem not_claimsRepetition_moveAndProposeDraw (m : Move) :
+    ¬ ClaimsRepetition (moveAndProposeDraw m) :=
+  of_decide_eq_false (rfl : claimsRepetition (moveAndProposeDraw m) = false)
+
+/-- Whether `a` claims a draw by the fifty-move rule, either after a move
+or in the current position (FIDE Article 9.3). -/
+def claimsNoProgress : Action → Bool
+  | .moveAndClaimNoProgress _ | .claimNoProgress => true
+  | _ => false
+
+/-- `a` claims a draw by the fifty-move rule, after a move or not. -/
+def ClaimsNoProgress (a : Action) : Prop :=
+  claimsNoProgress a = true
+
+instance {a : Action} : Decidable (ClaimsNoProgress a) :=
+  inferInstanceAs (Decidable (_ = true))
+
+theorem claimsNoProgress_claimNoProgress :
+    ClaimsNoProgress .claimNoProgress := rfl
+theorem claimsNoProgress_moveAndClaim (m : Move) :
+    ClaimsNoProgress (moveAndClaimNoProgress m) := rfl
+theorem not_claimsNoProgress_move (m : Move) :
+    ¬ ClaimsNoProgress (move m) :=
+  of_decide_eq_false (rfl : claimsNoProgress (move m) = false)
+theorem not_claimsNoProgress_surrender :
+    ¬ ClaimsNoProgress .surrender :=
+  of_decide_eq_false (rfl : claimsNoProgress .surrender = false)
+theorem not_claimsNoProgress_acceptDraw :
+    ¬ ClaimsNoProgress .acceptDraw :=
+  of_decide_eq_false (rfl : claimsNoProgress .acceptDraw = false)
+theorem not_claimsNoProgress_moveAndProposeDraw (m : Move) :
+    ¬ ClaimsNoProgress (moveAndProposeDraw m) :=
+  of_decide_eq_false (rfl : claimsNoProgress (moveAndProposeDraw m) = false)
+
 end Action
 
 namespace Board
@@ -169,6 +268,44 @@ without a pawn move or capture (FIDE Article 9.3.1). -/
 def leadsToNoProgress (g : GameState) (m : Move) : Bool :=
   !moveIsPawnMoveOrCapture g.current m &&
     decide (noProgressPlies ≤ g.pliesWithoutProgress + 1)
+
+/-- Whether playing `m` would produce a fifth occurrence of the
+resulting position (FIDE Article 9.6.1). -/
+def appearsFivefoldAfter (g : GameState) (m : Move) : Bool :=
+  let p := g.current.play m
+  decide (5 ≤ g.occurrenceCount p + 1)
+
+/-- Playing `m` produces a fifth occurrence of the resulting position. -/
+def AppearsFivefoldAfter (g : GameState) (m : Move) : Prop :=
+  appearsFivefoldAfter g m = true
+
+instance {g : GameState} {m : Move} : Decidable (AppearsFivefoldAfter g m) :=
+  inferInstanceAs (Decidable (appearsFivefoldAfter g m = true))
+
+theorem appearsFivefoldAfter_eq_true_iff (g : GameState) (m : Move) :
+    appearsFivefoldAfter g m = true ↔ AppearsFivefoldAfter g m :=
+  Iff.rfl
+
+/-- Seventy-five moves by each player: 150 half-moves (FIDE Article 9.6.2). -/
+def seventyFiveMovePlies : Nat := 150
+
+/-- Whether playing `m` would complete seventy-five moves by each player
+without a pawn move or capture (FIDE Article 9.6.2). -/
+def leadsToSeventyFiveMove (g : GameState) (m : Move) : Bool :=
+  !moveIsPawnMoveOrCapture g.current m &&
+    decide (seventyFiveMovePlies ≤ g.pliesWithoutProgress + 1)
+
+/-- Playing `m` completes seventy-five moves by each player without a
+pawn move or capture. -/
+def LeadsToSeventyFiveMove (g : GameState) (m : Move) : Prop :=
+  leadsToSeventyFiveMove g m = true
+
+instance {g : GameState} {m : Move} : Decidable (LeadsToSeventyFiveMove g m) :=
+  inferInstanceAs (Decidable (leadsToSeventyFiveMove g m = true))
+
+theorem leadsToSeventyFiveMove_eq_true_iff (g : GameState) (m : Move) :
+    leadsToSeventyFiveMove g m = true ↔ LeadsToSeventyFiveMove g m :=
+  Iff.rfl
 
 /-- Whether the opponent has already made at least one move.
 

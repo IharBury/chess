@@ -8,7 +8,8 @@ legal moves of a
 position (promotions to different pieces counted separately), checkmate,
 stalemate, game states
 (current position, historical positions, and a pending draw offer),
-legal actions of the player to move, and finished games
+legal actions of the player to move, whether an action ends the game,
+and finished games
 (position history, player declarations, technical ends, and outcomes) are specified as Lean
 types and predicates. Theorems in the library are machine-checked: `lake build`
 fails if any of them stops being true of the definitions.
@@ -57,6 +58,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.Stalemate` | Whether the player to move is stalemated |
 | `Chess.GameState` | Current position, historical positions, and a pending draw offer |
 | `Chess.Action` | Legal actions of the player to move in an unfinished game |
+| `Chess.EndsGame` | Whether an action ends the game (mate, stalemate, claims, dead position, fivefold, 75-move) |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes |
 
 Import the whole library with `import Chess`, or import a single module.
@@ -82,6 +84,7 @@ Sample facts already in the library:
 * the starting game has an empty history, no pending draw offer, and its current position is the standard starting position
 * the player to move may play a legal move, offer a draw with a move after the opponent has moved, resign, claim a draw by threefold repetition or the fifty-move rule (before or after a qualifying move), or accept a pending draw offer
 * the starting game has 21 legal actions (20 moves and resignation); White may not offer a draw on the first move; after `1. e4` Black may play and offer a draw
+* an action ends the game (`GameState.EndsGame`) when it checkmates, stalemates, accepts a draw, resigns, claims repetition or the fifty-move rule, or produces a dead position, fivefold repetition, or 75 moves without progress; White's `e2–e4` at the start does not
 * a finished game records every position, player declarations (repetition claim, resignation, draw proposals with proposer and turn, acceptance), technical termination (including the timer), and who won or a draw
 * White's win, Black's win, and a draw are three distinct outcomes
 * bishops stay on one square-color; knights always change square-color
