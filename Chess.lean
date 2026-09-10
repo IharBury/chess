@@ -46,5 +46,5 @@ without circular imports:
 * `Chess.GameState` — current position, historical positions, and a pending draw offer
 * `Chess.Action` — legal actions of the player to move in an unfinished game
 * `Chess.EndsGame` — whether an action ends the game
-* `Chess.FinishedGame` — completed games: positions, declarations, technical ends, and outcomes
+* `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 -/
