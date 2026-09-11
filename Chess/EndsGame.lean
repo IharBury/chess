@@ -25,6 +25,41 @@ namespace Position
 def DeadPosition (p : Position) : Prop :=
   ∀ q, Reachable p q → ¬ InCheckmate q
 
+/-- A position is dead exactly when checkmate is not reachable from it. -/
+theorem DeadPosition_iff_not_CheckmateReachable (p : Position) :
+    DeadPosition p ↔ ¬ CheckmateReachable p := by
+  constructor
+  · intro hd ⟨q, hr, hm⟩
+    exact hd q hr hm
+  · intro h q hr hm
+    exact h ⟨q, hr, hm⟩
+
+/-- If checkmate is reachable, the position is not dead. -/
+theorem not_deadPosition_of_checkmateReachable {p : Position}
+    (h : CheckmateReachable p) : ¬ DeadPosition p :=
+  fun hd => (DeadPosition_iff_not_CheckmateReachable p).mp hd h
+
+/-- If every move is illegal in `start`, the only reachable position is
+`start` itself. -/
+theorem reachable_eq_of_forall_not_LegalMove {start q : Position}
+    (hempty : ∀ m : Move, ¬ LegalMove start m) (hr : Reachable start q) :
+    q = start := by
+  refine Reachable.rec (motive := fun q' _ => q' = start) rfl ?_ hr
+  intro r m _hr hm ih
+  exact (hempty m (ih ▸ hm)).elim
+
+/-- A stalemate cannot reach checkmate: there are no legal moves, so the
+only reachable position is the stalemate itself, which is not
+checkmate. -/
+theorem not_CheckmateReachable_of_InStalemate {p : Position}
+    (h : InStalemate p) : ¬ CheckmateReachable p := by
+  intro ⟨q, hr, hm⟩
+  have hq : q = p :=
+    reachable_eq_of_forall_not_LegalMove
+      ((InStalemate_iff_forall_not_LegalMove p).mp h).2 hr
+  subst hq
+  exact h.1 hm.1
+
 /-- A checkmate position is not dead: checkmate has already been
 reached. -/
 theorem not_deadPosition_of_inCheckmate {p : Position} (h : InCheckmate p) :
