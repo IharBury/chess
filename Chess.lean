@@ -17,6 +17,7 @@ import Chess.Stalemate
 import Chess.GameState
 import Chess.Action
 import Chess.EndsGame
+import Chess.KingBishops
 import Chess.FinishedGame
 
 /-!
@@ -46,5 +47,7 @@ without circular imports:
 * `Chess.GameState` — current position, historical positions, and a pending draw offer
 * `Chess.Action` — legal actions of the player to move in an unfinished game
 * `Chess.EndsGame` — whether an action ends the game
+* `Chess.KingBishops` — king and bishop versus king and bishop: checkmate is reachable exactly with
+  opposite-color bishops
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 -/
