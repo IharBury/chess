@@ -1,3 +1,5 @@
+import Chess.EndsGame
+import Chess.KingKnights
 import Chess.KingKnightsW0
 import Chess.KingKnightsW1
 import Chess.KingKnightsW2
@@ -15,6 +17,8 @@ Strong induction on the potential then yields `CheckmateReachable`.
 namespace Chess
 
 namespace KNState
+
+open Position
 
 /-- Every state is illegal or makes progress under the engineered policy. -/
 theorem covered (s : KNState) : (!s.okB || s.checkState) = true := by
