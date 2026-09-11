@@ -1013,15 +1013,8 @@ def relaxingKing (s : KNState) : Option Square :=
       | some d0 => if m < kingMetric d0 tgt then some d else acc
     else acc) none
 
-/-- The side to move has no reducing king step, reducing knight hop, or
-quiet waiting hop (and is not already on the finale or in check). -/
-def stuckB (s : KNState) : Bool :=
-  !s.mateB && s.finaleMu.isNone && !s.inCheckB s.toMove &&
-    s.reducingKing.isNone && s.reducingKnight.isNone && s.waitKnight.isNone
-
 /-- The potential: finale counter on the movie, otherwise twice the
-staging work plus tempo, a check bonus, and a stuck bonus so that a
-waiting hop by a boxed king still lowers the potential. -/
+staging work plus tempo and a check bonus. -/
 def mu (s : KNState) : Nat :=
   if s.mateB then 0
   else
@@ -1029,8 +1022,7 @@ def mu (s : KNState) : Nat :=
     | some n => n
     | none =>
       2 * (whiteWork s.wk s.wn + blackWork s.bk s.bn) + s.tempo +
-        (if s.inCheckB s.toMove then 256 else 0) +
-        (if s.stuckB then 128 else 0) + 16
+        (if s.inCheckB s.toMove then 256 else 0) + 16
 
 /-- The king of the side to move is not yet on its staging square. -/
 def kingOffTarget (s : KNState) : Bool :=
