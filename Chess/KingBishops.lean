@@ -124,6 +124,162 @@ theorem IsOppositeColorBishops.toKingBishops {p : Position}
   exact ⟨wk, bk, wb, bb, hwk_bk, hwk_wb, hwk_bb, hbk_wb, hbk_bb, hwb_bb, hna,
     hboard, hc, he⟩
 
+/-- A valid position with exactly four occupied squares, a white
+bishop, and a black bishop holds only the two kings and those bishops,
+with the kings not adjacent. -/
+theorem isKingBishops_of_valid {p : Position} (hv : Valid p)
+    (hocc : p.board.occupied.card = 4)
+    (hwb : ∃ s, p.board s = some { color := .white, kind := .bishop })
+    (hbb : ∃ s, p.board s = some { color := .black, kind := .bishop }) :
+    IsKingBishops p := by
+  obtain ⟨hbv, hopp, hcast, hep⟩ := hv
+  obtain ⟨hkings, _, _, _⟩ := hbv
+  obtain ⟨wk, hwk⟩ := Finset.card_eq_one.mp (hkings .white)
+  obtain ⟨bk, hbk⟩ := Finset.card_eq_one.mp (hkings .black)
+  obtain ⟨wb, hwb'⟩ := hwb
+  obtain ⟨bb, hbb'⟩ := hbb
+  have hwk_bk : wk ≠ bk := by
+    intro heq
+    have hwmem : p.board wk = some { color := .white, kind := .king } :=
+      (Board.mem_kingSquares _ _ _).mp (by simp [hwk])
+    have hbmem : p.board bk = some { color := .black, kind := .king } :=
+      (Board.mem_kingSquares _ _ _).mp (by simp [hbk])
+    rw [heq] at hwmem
+    cases hwmem.symm.trans hbmem
+  have hwk_wb : wk ≠ wb := by
+    intro heq
+    have hking : p.board wk = some { color := .white, kind := .king } :=
+      (Board.mem_kingSquares _ _ _).mp (by simp [hwk])
+    rw [heq] at hking
+    exact some_king_ne_bishop (hking.symm.trans hwb')
+  have hwk_bb : wk ≠ bb := by
+    intro heq
+    have hking : p.board wk = some { color := .white, kind := .king } :=
+      (Board.mem_kingSquares _ _ _).mp (by simp [hwk])
+    rw [heq] at hking
+    exact some_king_ne_bishop (hking.symm.trans hbb')
+  have hbk_wb : bk ≠ wb := by
+    intro heq
+    have hking : p.board bk = some { color := .black, kind := .king } :=
+      (Board.mem_kingSquares _ _ _).mp (by simp [hbk])
+    rw [heq] at hking
+    exact some_king_ne_bishop (hking.symm.trans hwb')
+  have hbk_bb : bk ≠ bb := by
+    intro heq
+    have hking : p.board bk = some { color := .black, kind := .king } :=
+      (Board.mem_kingSquares _ _ _).mp (by simp [hbk])
+    rw [heq] at hking
+    exact some_king_ne_bishop (hking.symm.trans hbb')
+  have hwb_bb : wb ≠ bb := by
+    intro heq
+    rw [heq] at hwb'
+    cases hwb'.symm.trans hbb'
+  have hoccEq : p.board.occupied = {wk, bk, wb, bb} := by
+    have hsub : ({wk, bk, wb, bb} : Finset Square) ⊆ p.board.occupied := by
+      intro s hs
+      simp only [Finset.mem_insert, Finset.mem_singleton] at hs
+      rcases hs with h | h | h | h
+      · have hking : p.board wk = some { color := .white, kind := .king } :=
+          (Board.mem_kingSquares _ _ _).mp (by simp [hwk])
+        simp [Board.mem_occupied, h, hking]
+      · have hking : p.board bk = some { color := .black, kind := .king } :=
+          (Board.mem_kingSquares _ _ _).mp (by simp [hbk])
+        simp [Board.mem_occupied, h, hking]
+      · simp [Board.mem_occupied, h, hwb']
+      · simp [Board.mem_occupied, h, hbb']
+    have hcard : ({wk, bk, wb, bb} : Finset Square).card = 4 := by
+      rw [Finset.card_insert_of_notMem, Finset.card_insert_of_notMem,
+        Finset.card_insert_of_notMem, Finset.card_singleton]
+      · simp [hwb_bb]
+      · simp [hbk_wb, hbk_bb]
+      · simp [hwk_bk, hwk_wb, hwk_bb]
+    exact (Finset.eq_of_subset_of_card_le hsub (by simp [hocc, hcard])).symm
+  have hboard : p.board = Board.kingsBishopsBoard wk bk wb bb := by
+    funext s
+    by_cases hw : s = wk
+    · rw [hw, Board.kingsBishopsBoard_whiteKing]
+      exact (Board.mem_kingSquares _ _ _).mp (by simp [hwk])
+    · by_cases hb : s = bk
+      · rw [hb, Board.kingsBishopsBoard_blackKing wk bk wb bb hwk_bk]
+        exact (Board.mem_kingSquares _ _ _).mp (by simp [hbk])
+      · by_cases hs : s = wb
+        · rw [hs, Board.kingsBishopsBoard_whiteBishop wk bk wb bb hwk_wb hbk_wb]
+          exact hwb'
+        · by_cases hs' : s = bb
+          · rw [hs', Board.kingsBishopsBoard_blackBishop wk bk wb bb
+              hwk_bb hbk_bb hwb_bb]
+            exact hbb'
+          · have hsocc : s ∉ p.board.occupied := by
+              rw [hoccEq]
+              simp [hw, hb, hs, hs']
+            rw [eq_none_of_not_mem_occupied hsocc,
+              Board.kingsBishopsBoard_other wk bk wb bb s hw hb hs hs']
+  have hna : ¬ KingAttacks wk bk := by
+    intro hk
+    cases ht : p.toMove with
+    | white =>
+      have hopp' : p.board.kingIsAttacked .black = false := by
+        simpa [ht] using hopp
+      have htrue : p.board.kingIsAttacked .black = true := by
+        rw [hboard]
+        exact (Board.kingsBishopsBoard_kingIsAttacked_black wk bk wb bb
+          hwk_bk hwk_wb hwk_bb hbk_wb hbk_bb hwb_bb).mpr (Or.inl hk)
+      exact Bool.false_ne_true (hopp'.symm.trans htrue)
+    | black =>
+      have hopp' : p.board.kingIsAttacked .white = false := by
+        simpa [ht] using hopp
+      have htrue : p.board.kingIsAttacked .white = true := by
+        rw [hboard]
+        exact (Board.kingsBishopsBoard_kingIsAttacked_white wk bk wb bb
+          hwk_bk hwk_wb hwk_bb hbk_wb hbk_bb hwb_bb).mpr
+          (Or.inl (kingAttacks_symmetric.mp hk))
+      exact Bool.false_ne_true (hopp'.symm.trans htrue)
+  have hc : p.castling = ∅ := by
+    rw [Finset.eq_empty_iff_forall_notMem]
+    intro r hr
+    obtain ⟨_, hrook⟩ := hcast r hr
+    have hmem : r.rookSquare ∈ p.board.occupied := by
+      simp [Board.mem_occupied, hrook]
+    rw [hoccEq] at hmem
+    simp only [Finset.mem_insert, Finset.mem_singleton] at hmem
+    rcases hmem with hsq | hsq | hsq | hsq
+    · rw [hsq, hboard, Board.kingsBishopsBoard_whiteKing] at hrook
+      exact some_king_ne_rook hrook
+    · rw [hsq, hboard, Board.kingsBishopsBoard_blackKing wk bk wb bb hwk_bk] at hrook
+      exact some_king_ne_rook hrook
+    · rw [hsq, hboard, Board.kingsBishopsBoard_whiteBishop wk bk wb bb hwk_wb hbk_wb]
+        at hrook
+      exact some_bishop_ne_rook hrook
+    · rw [hsq, hboard,
+        Board.kingsBishopsBoard_blackBishop wk bk wb bb hwk_bb hbk_bb hwb_bb] at hrook
+      exact some_bishop_ne_rook hrook
+  have he : p.enPassant = none := by
+    cases hep' : p.enPassant with
+    | none => rfl
+    | some ep =>
+      obtain ⟨_, _, hcap⟩ :=
+        (enPassantOk_some p ep hep').mp (by simpa [hep'] using hep)
+      obtain ⟨s, hs, _⟩ := (existsPawnAttacking_iff _ _ _).mp hcap
+      have hpawn := (hasPawn_eq_true_iff _ _ _).mp hs
+      have hmem : s ∈ p.board.occupied := by
+        simp [Board.mem_occupied, hpawn]
+      rw [hoccEq] at hmem
+      simp only [Finset.mem_insert, Finset.mem_singleton] at hmem
+      rcases hmem with hsq | hsq | hsq | hsq
+      · rw [hsq, hboard, Board.kingsBishopsBoard_whiteKing] at hpawn
+        cases some_king_ne_pawn hpawn
+      · rw [hsq, hboard, Board.kingsBishopsBoard_blackKing wk bk wb bb hwk_bk] at hpawn
+        cases some_king_ne_pawn hpawn
+      · rw [hsq, hboard, Board.kingsBishopsBoard_whiteBishop wk bk wb bb hwk_wb hbk_wb]
+          at hpawn
+        cases some_bishop_ne_pawn hpawn
+      · rw [hsq, hboard,
+          Board.kingsBishopsBoard_blackBishop wk bk wb bb hwk_bb hbk_bb hwb_bb]
+          at hpawn
+        cases some_bishop_ne_pawn hpawn
+  exact ⟨wk, bk, wb, bb, hwk_bk, hwk_wb, hwk_bb, hbk_wb, hbk_bb, hwb_bb, hna,
+    hboard, hc, he⟩
+
 theorem IsKingBishops.same_or_opposite {p : Position} (h : IsKingBishops p) :
     IsSameColorBishops p ∨ IsOppositeColorBishops p := by
   obtain ⟨wk, bk, wb, bb, hwk_bk, hwk_wb, hwk_bb, hbk_wb, hbk_bb, hwb_bb,
@@ -638,6 +794,75 @@ def checkAll : Bool :=
     tripleOk .white wk bk ob && tripleOk .black wk bk ob
 
 theorem checkAll_true : checkAll = true := by native_decide
+
+/-! ### The mating line
+
+The scripted play behind `checkState`, replayed to produce the actual moves.
+Its correctness is not proved in general; the examples below verify concrete
+lines with `pathLegal`. -/
+
+/-- The moves of a successful `chain` from `s` relative to `s0`, if any. -/
+def chainPath (s0 : KBState) : KBState → Nat → Option (List KBMove)
+  | _, 0 => none
+  | s, n + 1 =>
+    let viaWait : Option (List KBMove) :=
+      match s.waitMove with
+      | some m => if s.oneOk m && goal s0 (s.apply m) then some [m] else none
+      | none => none
+    match viaWait with
+    | some ms => some ms
+    | none =>
+      match s.scriptMove with
+      | none => none
+      | some m =>
+        if s.oneOk m then
+          let s1 := s.apply m
+          if goal s0 s1 then some [m] else (chainPath s0 s1 n).map (m :: ·)
+        else none
+
+/-- The state after a sequence of moves. -/
+def applyAll (s : KBState) (ms : List KBMove) : KBState :=
+  ms.foldl apply s
+
+/-- The mating line in state moves: a generic move when available, otherwise
+the scripted chain; `fuel` bounds the number of rounds. -/
+def matingLineAux : KBState → Nat → List KBMove
+  | _, 0 => []
+  | s, fuel + 1 =>
+    if s.mateB then []
+    else
+      match s.genericMove with
+      | some m => m :: matingLineAux (s.apply m) fuel
+      | none =>
+        match chainPath s s window with
+        | some ms => ms ++ matingLineAux (s.applyAll ms) fuel
+        | none => []
+
+/-- The chess moves of a sequence of state moves. -/
+def toMoves : KBState → List KBMove → List Move
+  | _, [] => []
+  | s, m :: ms => s.move m :: toMoves (s.apply m) ms
+
+/-- The engineered mating line from `s`, as chess moves. Every round lowers
+the potential or mates, so `2 * s.mu + 2` rounds suffice. -/
+def matingLine (s : KBState) : List Move :=
+  s.toMoves (matingLineAux s (2 * s.mu + 2))
+
+/-- The four-piece state of a position whose board holds exactly two kings and
+two bishops in a legal opposite-color arrangement, with no castling rights and
+no en passant target. -/
+def ofPosition? (p : Position) : Option KBState :=
+  match allSquares.find? (fun q => p.board q == some { color := .white, kind := .king }),
+      allSquares.find? (fun q => p.board q == some { color := .black, kind := .king }),
+      allSquares.find? (fun q => p.board q == some { color := .white, kind := .bishop }),
+      allSquares.find? (fun q => p.board q == some { color := .black, kind := .bishop }) with
+  | some wk, some bk, some wb, some bb =>
+    let s : KBState := ⟨p.toMove, wk, bk, wb, bb⟩
+    if s.okB && (allSquares.all fun q => p.board q == Board.kingsBishopsBoard wk bk wb bb q) &&
+        decide (p.castling = ∅) && decide (p.enPassant = none) then
+      some s
+    else none
+  | _, _, _, _ => none
 
 /-! ## Soundness -/
 
@@ -1696,6 +1921,144 @@ square-colors. -/
 def kingBishopsCheckmateReachable (p : Position) (hv : Valid p) (h : IsKingBishops p) :
     Decidable (CheckmateReachable p) :=
   decidable_of_iff (p.oppositeColorBishops = true) (h.checkmateReachable_iff hv).symm
+
+/-- Same-color bishops: the position is dead. -/
+theorem IsSameColorBishops.deadPosition {p : Position} (h : IsSameColorBishops p) :
+    DeadPosition p :=
+  (DeadPosition_iff_not_CheckmateReachable p).mpr h.not_checkmateReachable
+
+/-- Opposite-color bishops: the position is not dead. -/
+theorem IsOppositeColorBishops.not_deadPosition {p : Position} (hv : Valid p)
+    (h : IsOppositeColorBishops p) : ¬ DeadPosition p :=
+  not_deadPosition_of_checkmateReachable (h.checkmateReachable hv)
+
+/-- The engineered mating line of a king-and-bishop versus king-and-bishop
+position with opposite-color bishops; `[]` for other positions. -/
+def kingBishopsMatingLine (p : Position) : List Move :=
+  match KBState.ofPosition? p with
+  | some s => s.matingLine
+  | none => []
+
+/-! ### Example: kings on `e1` and `e8`, bishops on `c1` and `c8` -/
+
+/-- White king on `e1`, black king on `e8`, white bishop on `c1` (dark), black
+bishop on `c8` (light), White to move. -/
+def kingBishopsStart : Position where
+  board := fun s =>
+    if s = Square.e1 then some { color := .white, kind := .king }
+    else if s = Square.e8 then some { color := .black, kind := .king }
+    else if s = Square.c1 then some { color := .white, kind := .bishop }
+    else if s = Square.c8 then some { color := .black, kind := .bishop }
+    else none
+  toMove := .white
+  castling := CastlingRights.empty
+  enPassant := none
+
+theorem kingBishopsStart_isValid : isValid kingBishopsStart = true := by
+  native_decide
+
+theorem kingBishopsStart_valid : Valid kingBishopsStart :=
+  (isValid_eq_true_iff _).mp kingBishopsStart_isValid
+
+theorem kingBishopsStart_isKingBishops : IsKingBishops kingBishopsStart :=
+  isKingBishops_of_valid kingBishopsStart_valid (by native_decide)
+    ⟨Square.c1, by native_decide⟩ ⟨Square.c8, by native_decide⟩
+
+theorem kingBishopsStart_oppositeColorBishops :
+    kingBishopsStart.oppositeColorBishops = true := by
+  native_decide
+
+/-- Checkmate is reachable from the starting example. -/
+theorem kingBishopsStart_CheckmateReachable : CheckmateReachable kingBishopsStart :=
+  (kingBishopsStart_isKingBishops.checkmateReachable_iff kingBishopsStart_valid).mpr
+    kingBishopsStart_oppositeColorBishops
+
+/-- The decision procedure agrees. -/
+theorem kingBishopsStart_decide_CheckmateReachable :
+    @decide (CheckmateReachable kingBishopsStart)
+      (kingBishopsCheckmateReachable kingBishopsStart kingBishopsStart_valid
+        kingBishopsStart_isKingBishops) = true := by
+  native_decide
+
+theorem kingBishopsStart_not_deadPosition : ¬ DeadPosition kingBishopsStart :=
+  not_deadPosition_of_checkmateReachable kingBishopsStart_CheckmateReachable
+
+/-- The engineered line is legal ... -/
+theorem kingBishopsStart_matingLine_legal :
+    pathLegal kingBishopsStart (kingBishopsMatingLine kingBishopsStart) = true := by
+  native_decide
+
+/-- ... and ends in checkmate. -/
+theorem kingBishopsStart_matingLine_inCheckmate :
+    (playSeq kingBishopsStart (kingBishopsMatingLine kingBishopsStart)).inCheckmate = true := by
+  native_decide
+
+/-- The concrete line: the white king walks to `f6` while the black bishop
+shuttles between `g8` and `h7`, the white bishop reaches the long diagonal,
+the black king goes to `h8`, and `Kf6–f7` mates by discovered check. -/
+theorem kingBishopsStart_matingLine_eq :
+    kingBishopsMatingLine kingBishopsStart =
+      [Move.std Square.e1 Square.d2, Move.std Square.c8 Square.e6,
+        Move.std Square.d2 Square.c3, Move.std Square.e6 Square.f7,
+        Move.std Square.c3 Square.d4, Move.std Square.f7 Square.g8,
+        Move.std Square.d4 Square.e5, Move.std Square.g8 Square.h7,
+        Move.std Square.e5 Square.f6, Move.std Square.h7 Square.g8,
+        Move.std Square.c1 ⟨1, 1⟩, Move.std Square.e8 Square.f8,
+        Move.std ⟨1, 1⟩ Square.c3, Move.std Square.g8 Square.h7,
+        Move.std Square.c3 Square.d4, Move.std Square.f8 Square.g8,
+        Move.std Square.d4 Square.e5, Move.std Square.g8 Square.h8,
+        Move.std Square.f6 Square.f7] := by
+  native_decide
+
+/-- Checkmate is reachable from the starting example, by its concrete line. -/
+theorem kingBishopsStart_CheckmateReachable' : CheckmateReachable kingBishopsStart :=
+  checkmateReachable_of_legalSeq
+    ((pathLegal_iff _ _).mp kingBishopsStart_matingLine_legal)
+    ((inCheckmate_eq_true_iff _).mp kingBishopsStart_matingLine_inCheckmate)
+
+/-! ### Example: kings on `e1` and `e8`, bishops on `c1` and `f8` -/
+
+/-- White king on `e1`, black king on `e8`, white bishop on `c1`, black bishop
+on `f8` (both dark), White to move. -/
+def kingBishopsSame : Position where
+  board := fun s =>
+    if s = Square.e1 then some { color := .white, kind := .king }
+    else if s = Square.e8 then some { color := .black, kind := .king }
+    else if s = Square.c1 then some { color := .white, kind := .bishop }
+    else if s = Square.f8 then some { color := .black, kind := .bishop }
+    else none
+  toMove := .white
+  castling := CastlingRights.empty
+  enPassant := none
+
+theorem kingBishopsSame_isValid : isValid kingBishopsSame = true := by
+  native_decide
+
+theorem kingBishopsSame_valid : Valid kingBishopsSame :=
+  (isValid_eq_true_iff _).mp kingBishopsSame_isValid
+
+theorem kingBishopsSame_isKingBishops : IsKingBishops kingBishopsSame :=
+  isKingBishops_of_valid kingBishopsSame_valid (by native_decide)
+    ⟨Square.c1, by native_decide⟩ ⟨Square.f8, by native_decide⟩
+
+theorem kingBishopsSame_oppositeColorBishops :
+    kingBishopsSame.oppositeColorBishops = false := by
+  native_decide
+
+/-- Checkmate is not reachable with same-color bishops. -/
+theorem kingBishopsSame_not_CheckmateReachable : ¬ CheckmateReachable kingBishopsSame :=
+  fun h => Bool.false_ne_true (kingBishopsSame_oppositeColorBishops.symm.trans
+    ((kingBishopsSame_isKingBishops.checkmateReachable_iff kingBishopsSame_valid).mp h))
+
+/-- The decision procedure agrees. -/
+theorem kingBishopsSame_decide_CheckmateReachable :
+    @decide (CheckmateReachable kingBishopsSame)
+      (kingBishopsCheckmateReachable kingBishopsSame kingBishopsSame_valid
+        kingBishopsSame_isKingBishops) = false := by
+  native_decide
+
+theorem kingBishopsSame_deadPosition : DeadPosition kingBishopsSame :=
+  (DeadPosition_iff_not_CheckmateReachable _).mpr kingBishopsSame_not_CheckmateReachable
 
 end Position
 
