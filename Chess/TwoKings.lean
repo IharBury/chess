@@ -249,6 +249,62 @@ theorem legalSeq_reachable {p : Position} :
     intro ⟨hm, hms⟩
     exact Reachable.trans (Reachable.step m Reachable.refl hm) (ih hms)
 
+theorem playSeq_append (p : Position) (ms ns : List Move) :
+    playSeq p (ms ++ ns) = playSeq (playSeq p ms) ns := by
+  induction ms generalizing p with
+  | nil => rfl
+  | cons m ms ih =>
+    simp [playSeq, ih]
+
+theorem playSeq_snoc (p : Position) (ms : List Move) (m : Move) :
+    playSeq p (ms ++ [m]) = (playSeq p ms).play m := by
+  simp [playSeq_append, playSeq]
+
+theorem legalSeq_snoc {p : Position} {ms : List Move} {m : Move}
+    (hms : LegalSeq p ms) (hm : LegalMove (playSeq p ms) m) :
+    LegalSeq p (ms ++ [m]) := by
+  induction ms generalizing p with
+  | nil => exact ⟨hm, trivial⟩
+  | cons a ms ih =>
+    exact ⟨hms.1, ih hms.2 hm⟩
+
+/-- Boolean check that each move of `ms` is legal in the position that
+then obtains. Equivalent to `LegalSeq`. -/
+def pathLegal (p : Position) : List Move → Bool
+  | [] => true
+  | m :: ms => p.isLegalMove m && pathLegal (p.play m) ms
+
+theorem pathLegal_iff (p : Position) :
+    ∀ ms : List Move, pathLegal p ms = true ↔ LegalSeq p ms := by
+  intro ms
+  induction ms generalizing p with
+  | nil => simp [pathLegal, LegalSeq]
+  | cons m ms ih =>
+    constructor
+    · intro h
+      simp only [pathLegal, Bool.and_eq_true] at h
+      exact ⟨h.1, (ih _).mp h.2⟩
+    · intro ⟨hm, hms⟩
+      simp only [pathLegal, Bool.and_eq_true]
+      exact ⟨hm, (ih _).mpr hms⟩
+
+/-- Checkmate is reachable from `start` when some position legally
+reachable from it (including `start` itself) is checkmate. -/
+def CheckmateReachable (p : Position) : Prop :=
+  ∃ q, Reachable p q ∧ InCheckmate q
+
+/-- A checkmate position can reach checkmate: the empty sequence. -/
+theorem checkmateReachable_of_inCheckmate {p : Position}
+    (h : InCheckmate p) : CheckmateReachable p :=
+  ⟨p, Reachable.refl, h⟩
+
+/-- A legal sequence ending in checkmate is a witness that checkmate
+is reachable. -/
+theorem checkmateReachable_of_legalSeq {p : Position} {ms : List Move}
+    (hms : LegalSeq p ms) (hm : InCheckmate (playSeq p ms)) :
+    CheckmateReachable p :=
+  ⟨playSeq p ms, legalSeq_reachable hms, hm⟩
+
 theorem IsTwoKings.not_inCheck {p : Position} (h : IsTwoKings p) :
     p.inCheck = false := by
   obtain ⟨wk, bk, hne, hna, hboard, _, _⟩ := h
