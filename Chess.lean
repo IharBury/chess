@@ -20,6 +20,7 @@ import Chess.EndsGame
 import Chess.KingBishops
 import Chess.KingKnights
 import Chess.KingKnightsTheorems
+import Chess.KingRook
 import Chess.FinishedGame
 
 /-!
@@ -53,5 +54,7 @@ without circular imports:
   opposite-color bishops
 * `Chess.KingKnights` — king and knight versus king and knight: checkmate is reachable by an
   engineered mating line (`Chess.KingKnightsTheorems`)
+* `Chess.KingRook` — king and rook versus king: checkmate is reachable exactly when
+  the position is not dead
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 -/
