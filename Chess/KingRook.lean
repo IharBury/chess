@@ -484,7 +484,7 @@ theorem board_rot180_involutive (b : Board) : b.rot180.rot180 = b := by
   rw [Square.rot180_involutive]
   cases h : b s with
   | none => simp
-  | some p => simp [h, Piece.flip_flip]
+  | some p => simp [Piece.flip_flip]
 
 theorem relocate_rot180 (b : Board) (src dst : Square) (p : Piece) :
     (b.relocate src dst p).rot180 =
@@ -495,11 +495,11 @@ theorem relocate_rot180 (b : Board) (src dst : Square) (p : Piece) :
   unfold relocate rot180
   by_cases h1 : x.rot180 = dst
   · have hx : x = dst.rot180 := rot180_eq_iff.mp h1
-    simp [h1, hx]
+    simp [hx]
   · by_cases h2 : x.rot180 = src
     · have hx : x = src.rot180 := rot180_eq_iff.mp h2
       have hxdst : x ≠ dst.rot180 := fun h => h1 (rot180_eq_iff.mpr h)
-      simp [h1, h2, hx, hxdst, hiff]
+      simp [hx, hiff]
     · have hxdst : x ≠ dst.rot180 := fun h => h1 (rot180_eq_iff.mpr h)
       have hxsrc : x ≠ src.rot180 := fun h => h2 (rot180_eq_iff.mpr h)
       simp [h1, h2, hxdst, hxsrc]
@@ -560,8 +560,11 @@ theorem rot180_involutive {p : Position}
     (hc : p.castling = ∅) (he : p.enPassant = none) :
     p.rot180.rot180 = p := by
   rcases p with ⟨b, tm, cst, ep⟩
-  simp [rot180, Board.board_rot180_involutive] at hc he ⊢
-  exact ⟨hc.symm, he.symm⟩
+  refine Position.ext ?_ ?_ ?_ ?_
+  · simp [rot180, Board.board_rot180_involutive]
+  · simp [rot180]
+  · simpa [rot180] using hc.symm
+  · simpa [rot180] using he.symm
 
 theorem destOk_kingsRookBoard {p : Position} {m : Move} {wk bk rs : Square}
     {c : Color}
@@ -1310,8 +1313,7 @@ theorem play_whiteKing {s : KRState} {d : Square} (hok : s.okB = true)
     rw [hplay', happ]
     change (Board.kingsRookBoard d s.bk s.rs .white).kingIsAttacked s.toMove = false
     rw [ht, kingIsAttacked_white_eq d s.bk s.rs hdbk hdrs h3]
-    simp [kingAttackedWhite]
-    exact mt kingAttacks_symmetric.mp hsafe
+    simpa [kingAttackedWhite] using mt kingAttacks_symmetric.mp hsafe
   unfold isLegalMove
   rw [hsrcP]
   simp only [beq_self_eq_true, Bool.true_and]
@@ -1426,7 +1428,7 @@ theorem play_rook {s : KRState} {d : Square} (hok : s.okB = true)
   have hsafe' : (s.toPosition.play (Move.std s.rs d)).board.kingIsAttacked
       s.toPosition.toMove = false := by
     have happ : s.apply (.rook d) = { s with toMove := .black, rs := d } := by
-      simp [apply, ht]
+      simp [apply]
     rw [hplay', happ]
     change (Board.kingsRookBoard s.wk s.bk d .white).kingIsAttacked s.toMove = false
     rw [ht, kingIsAttacked_white_eq s.wk s.bk d h1 hdwk.symm hdbk.symm]
@@ -1462,7 +1464,7 @@ theorem fastLegal_sound {s : KRState} {m : KRMove} (hok : s.okB = true)
     cases ht : s.toMove with
     | white =>
       simp only [fastLegal, ht] at hm
-      exact (by simp [move, ht] : s.move (.rook d) = Move.std s.rs d) ▸
+      exact (by simp [move] : s.move (.rook d) = Move.std s.rs d) ▸
         play_rook hok ht hm
     | black =>
       simp [fastLegal, ht] at hm
@@ -1489,7 +1491,7 @@ theorem apply_okB_of_fastLegal {s : KRState} {m : KRMove}
       have happ : s.apply (.king d) = ⟨.black, d, s.bk, s.rs⟩ := by simp [apply, ht]
       rw [happ]
       exact (okB_iff ⟨.black, d, s.bk, s.rs⟩).mpr
-        ⟨hdbk, hdrs, h3, hna', by simp [inCheckB, kingAttackedWhite]; exact hna'⟩
+        ⟨hdbk, hdrs, h3, hna', by simpa [inCheckB, kingAttackedWhite] using hna'⟩
     | black =>
       simp only [fastLegal, ht] at hm
       obtain ⟨hnrs, hmv⟩ := Bool.and_eq_true_iff.mp hm
@@ -1511,10 +1513,10 @@ theorem apply_okB_of_fastLegal {s : KRState} {m : KRMove}
     | white =>
       simp only [fastLegal, ht] at hm
       obtain ⟨hR, hdwk, hdbk, _, _⟩ := (fastRook_iff _ _ _ _).mp hm
-      have happ : s.apply (.rook d) = ⟨.black, s.wk, s.bk, d⟩ := by simp [apply, ht]
+      have happ : s.apply (.rook d) = ⟨.black, s.wk, s.bk, d⟩ := by simp [apply]
       rw [happ]
       exact (okB_iff ⟨.black, s.wk, s.bk, d⟩).mpr
-        ⟨h1, hdwk.symm, hdbk.symm, hna, by simp [inCheckB, kingAttackedWhite]; exact hna⟩
+        ⟨h1, hdwk.symm, hdbk.symm, hna, by simpa [inCheckB, kingAttackedWhite] using hna⟩
     | black =>
       simp [fastLegal, ht] at hm
 
@@ -1522,7 +1524,7 @@ theorem oneOk_iff (s : KRState) (m : KRMove) :
     s.oneOk m = true ↔
       s.fastLegal m = true ∧ (s.apply m).okB = true ∧
         ((s.apply m).mateB = true ∨ (s.apply m).deadB = false) := by
-  simp [oneOk, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_true']
+  simp [oneOk, Bool.and_eq_true, Bool.or_eq_true]
 
 def Progress (s0 s1 : KRState) : Prop :=
   s1.okB = true ∧ Reachable s0.toPosition s1.toPosition ∧
@@ -1652,17 +1654,17 @@ theorem mateB_black_no_legalMove {s : KRState} (hok : s.okB = true)
     have hmem := mateB_flight hm (mem_kingNeighbors hka)
     rcases hdstOr with hempty | hrs
     · obtain ⟨hdwk, hdbk, hdrs⟩ := ne_of_kingsRookBoard_eq_none (by
-        change Board.kingsRookBoard s.wk s.bk s.rs .white m.dst = none
         simpa [toPosition] using hempty)
       rw [hboard, Board.relocate_kingsRookBoard_black s.wk s.bk s.rs m.dst .white
         h1 h2 h3 hdwk hdbk hdrs, kingIsAttacked_black_eq s.wk m.dst s.rs
         hdwk.symm h2 hdrs] at hsafe'
       have hwkB : (m.dst == s.wk) = false := by simp [hdwk]
-      have hrsB : (m.dst != s.rs) = true := by simp [hdrs]
-      simp [kingAttackedBlack, Bool.or_eq_false_iff] at hsafe'
-      have hkaF : decide (KingAttacks s.wk m.dst) = false := decide_eq_false hsafe'.1
-      have hrF : rookChecks s.rs m.dst s.wk = false := hsafe'.2
-      simp [hwkB, hkaF, hrsB, hrF] at hmem
+      have hsafe'' : ¬ KingAttacks s.wk m.dst ∧
+          KRState.rookChecks s.rs m.dst s.wk = false := by
+        simpa [KRState.kingAttackedBlack, Bool.or_eq_false_iff] using hsafe'
+      have hkaF : decide (KingAttacks s.wk m.dst) = false := decide_eq_false hsafe''.1
+      have hrF : KRState.rookChecks s.rs m.dst s.wk = false := hsafe''.2
+      simp [hwkB, hkaF, hrF] at hmem
     · rw [hrs] at hmem hboard
       have hwkB : (s.rs == s.wk) = false := by simp [h2.symm]
       by_cases hprot : KingAttacks s.wk s.rs
@@ -1670,8 +1672,7 @@ theorem mateB_black_no_legalMove {s : KRState} (hok : s.okB = true)
         rw [Board.kingsBoard_kingIsAttacked_black s.wk s.rs h2] at hsafe'
         exact of_decide_eq_false hsafe' hprot
       · have hkaF : decide (KingAttacks s.wk s.rs) = false := decide_eq_false hprot
-        have hrsB : (s.rs != s.rs) = false := by simp
-        simp [hwkB, hkaF, hrsB] at hmem
+        simp [hwkB, hkaF] at hmem
   · simp only at hk
     subst hk
     have hsrc'' := hsrc'
@@ -2263,15 +2264,29 @@ def checkFile (f : Fin 8) : Bool :=
         checkState ⟨.white, ⟨f, r⟩, bk, rs⟩ &&
           checkState ⟨.black, ⟨f, r⟩, bk, rs⟩
 
-set_option maxHeartbeats 0
-
+set_option maxHeartbeats 0 in
+-- `native_decide` of one white-king file of the 2 · 64² KR vs K states.
 theorem checkFile0 : checkFile 0 = true := by native_decide
+set_option maxHeartbeats 0 in
+-- `native_decide` of one white-king file of the 2 · 64² KR vs K states.
 theorem checkFile1 : checkFile 1 = true := by native_decide
+set_option maxHeartbeats 0 in
+-- `native_decide` of one white-king file of the 2 · 64² KR vs K states.
 theorem checkFile2 : checkFile 2 = true := by native_decide
+set_option maxHeartbeats 0 in
+-- `native_decide` of one white-king file of the 2 · 64² KR vs K states.
 theorem checkFile3 : checkFile 3 = true := by native_decide
+set_option maxHeartbeats 0 in
+-- `native_decide` of one white-king file of the 2 · 64² KR vs K states.
 theorem checkFile4 : checkFile 4 = true := by native_decide
+set_option maxHeartbeats 0 in
+-- `native_decide` of one white-king file of the 2 · 64² KR vs K states.
 theorem checkFile5 : checkFile 5 = true := by native_decide
+set_option maxHeartbeats 0 in
+-- `native_decide` of one white-king file of the 2 · 64² KR vs K states.
 theorem checkFile6 : checkFile 6 = true := by native_decide
+set_option maxHeartbeats 0 in
+-- `native_decide` of one white-king file of the 2 · 64² KR vs K states.
 theorem checkFile7 : checkFile 7 = true := by native_decide
 
 theorem checkFile_true (f : Fin 8) : checkFile f = true :=
@@ -2461,7 +2476,7 @@ theorem kingIsAttacked_rot180 (b : Board) (c : Color) :
           have hlook : b.rot180 s = some p.flip := by simp [rot180, hb]
           have hpc : p.color.other = c := by simpa [hlook, Piece.flip] using hcol
           have hpc' : p.color = c.other := by rw [← Color.other_other p.color, hpc]
-          simp [hb, hpc']
+          simp [hpc']
       · have h := attacks_rot180 b s.rot180 t.rot180
         have : b.rot180.attacks s t = b.attacks s.rot180 t.rot180 := by
           simpa [Square.rot180_involutive] using h.symm
@@ -2580,10 +2595,10 @@ theorem IsKingAndRook.play_rot180 {p : Position} {m : Move}
     have hepR := enPassantAfter_king m.rot180 piece.flip.color
       (p.rot180.boardAfter m.rot180 piece.flip)
     rw [hplay, hplayR, rot180_mk, hpiece, hba]
-    simp [Piece.flip] at hbaR ⊢
-    rw [hbaR]
-    refine ⟨?_, ?_, ?_, ?_⟩
-    · simpa [Piece.flip, Move.rot180_src, Move.rot180_dst, rot180_board] using
+    refine Position.ext ?_ ?_ ?_ ?_
+    · rw [show ({ color := piece.color, kind := PieceKind.king } : Piece).flip =
+          { color := piece.flip.color, kind := .king } from rfl, hbaR]
+      simpa [Piece.flip, Move.rot180_src, Move.rot180_dst, rot180_board] using
         Board.relocate_rot180 p.board m.src m.dst { color := piece.color, kind := .king }
     · rw [rot180_toMove, Color.other_other]
     · rw [show p.rot180.castling = ∅ from rfl, castlingAfter_empty]
@@ -2597,10 +2612,10 @@ theorem IsKingAndRook.play_rot180 {p : Position} {m : Move}
     have hepR := enPassantAfter_rook m.rot180 piece.flip.color
       (p.rot180.boardAfter m.rot180 piece.flip)
     rw [hplay, hplayR, rot180_mk, hpiece, hba]
-    simp [Piece.flip] at hbaR ⊢
-    rw [hbaR]
-    refine ⟨?_, ?_, ?_, ?_⟩
-    · simpa [Piece.flip, Move.rot180_src, Move.rot180_dst, rot180_board] using
+    refine Position.ext ?_ ?_ ?_ ?_
+    · rw [show ({ color := piece.color, kind := PieceKind.rook } : Piece).flip =
+          { color := piece.flip.color, kind := .rook } from rfl, hbaR]
+      simpa [Piece.flip, Move.rot180_src, Move.rot180_dst, rot180_board] using
         Board.relocate_rot180 p.board m.src m.dst { color := piece.color, kind := .rook }
     · rw [rot180_toMove, Color.other_other]
     · rw [show p.rot180.castling = ∅ from rfl, castlingAfter_empty]
@@ -2867,8 +2882,7 @@ theorem exists_krState_black {p : Position} (hv : Valid p)
     | white =>
       have : s.toMove.other = .white := by simp [s, ht]
       rw [this]
-      simp [KRState.inCheckB, KRState.kingAttackedWhite]
-      exact (by simpa [s] using hna')
+      simpa [s, KRState.inCheckB, KRState.kingAttackedWhite] using hna'
     | black =>
       have hopp' : (Board.kingsRookBoard wk bk rs .black).kingIsAttacked .white =
           false := by simpa [ht] using hopp
