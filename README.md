@@ -60,6 +60,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.Action` | Legal actions of the player to move in an unfinished game |
 | `Chess.EndsGame` | Whether an action ends the game (mate, stalemate, claims, dead position, fivefold, 75-move) |
 | `Chess.KingBishops` | King and bishop versus king and bishop: checkmate is reachable exactly with opposite-color bishops, by an engineered mating line |
+| `Chess.KingRook` | King and rook versus king: checkmate is reachable exactly when the position is not dead, by an engineered mating line |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes; finishing by an ending action |
 
 Import the whole library with `import Chess`, or import a single module.
@@ -81,6 +82,7 @@ Sample facts already in the library:
 * a valid position with two kings and one knight is never checkmate, and no sequence of legal moves from it is checkmate (`kingKnight_reachable_not_inCheckmate`)
 * a valid position with two kings and two bishops on the same square-color is never checkmate, and no sequence of legal moves from it is checkmate (`sameColorBishops_reachable_not_inCheckmate`)
 * from a valid position with two kings and two bishops on opposite square-colors, checkmate is always reachable by cooperative play (`IsOppositeColorBishops.checkmateReachable`); `Position.kingBishopsCheckmateReachable` decides `CheckmateReachable` for any valid king-and-bishop versus king-and-bishop position, and `Position.kingBishopsMatingLine` produces a concrete mating line (19 plies from kings on `e1`/`e8` with bishops on `c1`/`c8`)
+* from a valid position with two kings and one rook, checkmate is reachable by cooperative play exactly when the position is not dead (`IsKingAndRook.checkmateReachable_iff`); if the rook side is to move it is always reachable (`IsKingAndRook.checkmateReachable_of_rookToMove`). Dead cases include stalemate of the lone king and a forced capture of an unprotected rook. `Position.kingRookCheckmateReachable` decides the property, and `Position.kingRookMatingLine` produces a concrete mating line
 * stalemate is no legal move without check (`Position.inStalemate`); checkmate, and a king that can flee, are not
 * the starting game position has White to move, all four castling rights, and no en passant capture
 * the starting game has an empty history, no pending draw offer, and its current position is the standard starting position
