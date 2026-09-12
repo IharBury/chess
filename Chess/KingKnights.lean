@@ -1132,10 +1132,18 @@ def dropsBelow (s : KNState) (x : Nat) (m : KNMove) : Bool :=
     if s1.okB then s1.mateB || decide (s1.mu < x) else false
   else false
 
+/-- Short-circuiting `List.any` so `native_decide` does not evaluate every
+destination after a success. -/
+def anyIf (p : Square → Bool) : List Square → Bool
+  | [] => false
+  | d :: ds => if p d then true else anyIf p ds
+
 /-- Some legal king step or knight hop mates or drops the potential below `x`. -/
 def onePlyBelow (s : KNState) (x : Nat) : Bool :=
-  (kingNeighbors (s.king s.toMove)).any (fun d => dropsBelow s x (.king d)) ||
-    (knightDests (s.knight s.toMove)).any (fun d => dropsBelow s x (.knight d))
+  if anyIf (fun d => dropsBelow s x (.king d))
+      (kingNeighbors (s.king s.toMove)) then true
+  else anyIf (fun d => dropsBelow s x (.knight d))
+      (knightDests (s.knight s.toMove))
 
 /-- A one-ply potential drop, using the state's own potential as the bound. -/
 def onePlyProgress (s : KNState) : Bool :=
@@ -1152,11 +1160,17 @@ def twoPlyFrom (s : KNState) (x : Nat) (m : KNMove) : Bool :=
     else false
   else false
 
+/-- A one- or two-ply legal sequence that mates or drops below `x`.
+Knight hops are tried first: residuals are typically waiting hops. -/
+def twoPlyAt (s : KNState) (x : Nat) : Bool :=
+  if anyIf (fun d => twoPlyFrom s x (.knight d))
+      (knightDests (s.knight s.toMove)) then true
+  else anyIf (fun d => twoPlyFrom s x (.king d))
+      (kingNeighbors (s.king s.toMove))
+
 /-- A one- or two-ply legal sequence that mates or drops `s.mu`. -/
 def twoPlyProgress (s : KNState) : Bool :=
-  let x := s.mu
-  (kingNeighbors (s.king s.toMove)).any (fun d => twoPlyFrom s x (.king d)) ||
-    (knightDests (s.knight s.toMove)).any (fun d => twoPlyFrom s x (.knight d))
+  s.twoPlyAt s.mu
 
 /-- A legal state is covered: checkmate, a cheap reducing move off the
 finale, a one- or two-ply potential drop, or the engineered policy. -/
@@ -2291,14 +2305,27 @@ theorem dropsBelow_progress {s : KNState} {m : KNMove} {x : Nat}
   · exact Or.inl hm
   · exact Or.inr (hx ▸ hlt)
 
+theorem mem_of_anyIf {p : Square → Bool} {xs : List Square}
+    (h : anyIf p xs = true) : ∃ d, d ∈ xs ∧ p d = true := by
+  induction xs with
+  | nil =>
+    simp [anyIf] at h
+  | cons d ds ih =>
+    unfold anyIf at h
+    by_cases hp : p d = true
+    · exact ⟨d, List.mem_cons_self, hp⟩
+    · simp only [eq_false_of_ne_true hp] at h
+      obtain ⟨d', hdmem, hd⟩ := ih h
+      exact ⟨d', List.mem_cons_of_mem _ hdmem, hd⟩
+
 theorem onePlyBelow_sound {s : KNState} {x : Nat}
     (hok : s.okB = true) (hx : x = s.mu) (h : onePlyBelow s x = true) :
     ∃ s1, Progress s s1 := by
-  simp only [onePlyBelow, Bool.or_eq_true] at h
-  rcases h with hk | hn
-  · obtain ⟨d, _, hd⟩ := List.any_eq_true.mp hk
+  unfold onePlyBelow at h
+  split_ifs at h with hk
+  · obtain ⟨d, _, hd⟩ := mem_of_anyIf hk
     exact dropsBelow_progress hok hx hd
-  · obtain ⟨d, _, hd⟩ := List.any_eq_true.mp hn
+  · obtain ⟨d, _, hd⟩ := mem_of_anyIf h
     exact dropsBelow_progress hok hx hd
 
 theorem onePlyProgress_sound {s : KNState} (hok : s.okB = true)
@@ -2319,11 +2346,11 @@ theorem onePlyBelow_sound_from {s s0 : KNState} {x : Nat}
     (hok : s.okB = true) (hr : Reachable s0.toPosition s.toPosition)
     (hx : x = s0.mu) (h : onePlyBelow s x = true) :
     ∃ s1, Progress s0 s1 := by
-  simp only [onePlyBelow, Bool.or_eq_true] at h
-  rcases h with hk | hn
-  · obtain ⟨d, _, hd⟩ := List.any_eq_true.mp hk
+  unfold onePlyBelow at h
+  split_ifs at h with hk
+  · obtain ⟨d, _, hd⟩ := mem_of_anyIf hk
     exact dropsBelow_progress_from hok hr hx hd
-  · obtain ⟨d, _, hd⟩ := List.any_eq_true.mp hn
+  · obtain ⟨d, _, hd⟩ := mem_of_anyIf h
     exact dropsBelow_progress_from hok hr hx hd
 
 theorem twoPlyFrom_sound {s : KNState} {m : KNMove} {x : Nat}
@@ -2347,14 +2374,19 @@ theorem twoPlyFrom_sound {s : KNState} {m : KNMove} {x : Nat}
   · simp only [eq_false_of_ne_true hfl] at h
     exact (Bool.false_ne_true h).elim
 
+theorem twoPlyAt_sound {s : KNState} {x : Nat}
+    (hok : s.okB = true) (hx : x = s.mu) (h : twoPlyAt s x = true) :
+    ∃ s1, Progress s s1 := by
+  unfold twoPlyAt at h
+  split_ifs at h with hn
+  · obtain ⟨d, _, hd⟩ := mem_of_anyIf hn
+    exact twoPlyFrom_sound hok hx hd
+  · obtain ⟨d, _, hd⟩ := mem_of_anyIf h
+    exact twoPlyFrom_sound hok hx hd
+
 theorem twoPlyProgress_sound {s : KNState} (hok : s.okB = true)
-    (h : s.twoPlyProgress = true) : ∃ s1, Progress s s1 := by
-  simp only [twoPlyProgress, Bool.or_eq_true] at h
-  rcases h with hk | hn
-  · obtain ⟨d, _, hd⟩ := List.any_eq_true.mp hk
-    exact twoPlyFrom_sound hok rfl hd
-  · obtain ⟨d, _, hd⟩ := List.any_eq_true.mp hn
-    exact twoPlyFrom_sound hok rfl hd
+    (h : s.twoPlyProgress = true) : ∃ s1, Progress s s1 :=
+  twoPlyAt_sound hok rfl h
 
 theorem checkState_sound {s : KNState} (hok : s.okB = true) (h : s.checkState = true) :
     ∃ s1, Progress s s1 := by
