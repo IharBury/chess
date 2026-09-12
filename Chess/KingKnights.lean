@@ -1094,33 +1094,41 @@ def chain (s0 : KNState) : KNState → Nat → Bool
 /-- Plies of scripted play allowed to lower the potential. -/
 def window : Nat := 12
 
-/-- A strictly reducing king step that is legal and lowers the potential
-(or mates). About 97% of legal states are covered by this one ply, so the
-exhaustive loop does not run the 12-ply chain. -/
-def reducingKingDest (s : KNState) (d : Square) : Bool :=
+/-- Whether the side to move has a geometrically legal king step that
+strictly lowers `kingMetric`. Cheap to evaluate: no successor state. -/
+def hasReducingKing (s : KNState) : Bool :=
   let k := s.king s.toMove
   let tgt := if s.toMove == .white then tgtWK else tgtBK
-  s.oneOk (.king d) && kingMetric d tgt < kingMetric k tgt &&
-    ((s.apply (.king d)).mateB || (s.apply (.king d)).mu < s.mu)
+  let cur := kingMetric k tgt
+  let ek := s.king s.toMove.other
+  let en := s.knight s.toMove.other
+  let on := s.knight s.toMove
+  decide (cur ≠ 0) && (kingNeighbors k).any fun d =>
+    fastKingStep k d ek en on && decide (kingMetric d tgt < cur)
 
-def reducingKingProgress (s : KNState) : Bool :=
-  (kingNeighbors (s.king s.toMove)).any (reducingKingDest s)
-
-/-- A strictly reducing knight hop that is legal and lowers the potential
-(or mates). -/
-def reducingKnightDest (s : KNState) (d : Square) : Bool :=
+/-- Whether the side to move has a geometrically legal knight hop that
+strictly lowers knight-work and does not check. -/
+def hasReducingKnight (s : KNState) : Bool :=
   let n := s.knight s.toMove
   let cur := if s.toMove == .white then nworkW n else nworkB n
-  let nw := if s.toMove == .white then nworkW d else nworkB d
-  s.oneOk (.knight d) && nw < cur &&
-    ((s.apply (.knight d)).mateB || (s.apply (.knight d)).mu < s.mu)
+  decide (cur ≠ 0) && (knightDests n).any fun d =>
+    s.fastLegal (.knight d) &&
+      !decide (KnightAttacks d (s.king s.toMove.other)) &&
+      decide ((if s.toMove == .white then nworkW d else nworkB d) < cur)
 
+/-- Off the finale, a reducing king step covers the state. The cheap
+geometric test is first so `native_decide` skips `finaleMu` on the
+common failure path. -/
+def reducingKingProgress (s : KNState) : Bool :=
+  s.hasReducingKing && s.finaleMu.isNone
+
+/-- Off the finale, a reducing knight hop covers the state. -/
 def reducingKnightProgress (s : KNState) : Bool :=
-  (knightDests (s.knight s.toMove)).any (reducingKnightDest s)
+  s.hasReducingKnight && s.finaleMu.isNone
 
 /-- A legal state is covered: it is checkmate, or a one-ply reducing
-move lowers the potential, or the engineered policy does so in `window`
-plies. -/
+move exists off the finale, or the engineered policy lowers the potential
+in `window` plies. -/
 def checkState (s : KNState) : Bool :=
   s.mateB || s.reducingKingProgress || s.reducingKnightProgress || chain s s window
 
@@ -1254,6 +1262,10 @@ theorem castlingSide_none_of_knightAttacks (c : Color) {s t : Square} (h : Knigh
 theorem kingAttackedAt_iff (d ek en : Square) :
     kingAttackedAt d ek en = true ↔ KingAttacks ek d ∨ KnightAttacks en d := by
   simp [kingAttackedAt]
+
+theorem kingAttackedAt_eq_false (d ek en : Square) :
+    kingAttackedAt d ek en = false ↔ ¬ KingAttacks ek d ∧ ¬ KnightAttacks en d := by
+  simp [kingAttackedAt, Bool.or_eq_false_iff, decide_eq_false_iff_not]
 
 theorem okB_iff (s : KNState) :
     s.okB = true ↔
@@ -1584,6 +1596,220 @@ theorem oneOk_iff (s : KNState) (m : KNMove) :
     s.oneOk m = true ↔ s.fastLegal m = true ∧ (s.apply m).okB = true := by
   simp [oneOk]
 
+theorem kingMetric_self (k : Square) : kingMetric k k = 0 := by
+  simp [kingMetric, cheb, dist]
+
+theorem kingMetric_eq_zero (k t : Square) : (kingMetric k t == 0) = decide (k = t) := by
+  revert k t
+  native_decide
+
+theorem whiteWork_lt_of_kingMetric {wks wns ds : Square}
+    (h0 : kingMetric wks tgtWK ≠ 0)
+    (hlt : kingMetric ds tgtWK < kingMetric wks tgtWK) :
+    whiteWork ds wns < whiteWork wks wns := by
+  have hne : wks ≠ tgtWK := by
+    intro heq
+    subst heq
+    exact h0 (kingMetric_self tgtWK)
+  have hw : whiteWork wks wns = kingMetric wks tgtWK + 8 * nworkW wns := by
+    unfold whiteWork
+    split_ifs with h
+    · simp only [beq_iff_eq, Bool.and_eq_true] at h
+      exact (hne h.1).elim
+    · rfl
+  rw [hw]
+  unfold whiteWork
+  split_ifs <;> omega
+
+theorem blackWork_lt_of_kingMetric {bks bns ds : Square}
+    (h0 : kingMetric bks tgtBK ≠ 0)
+    (hlt : kingMetric ds tgtBK < kingMetric bks tgtBK) :
+    blackWork ds bns < blackWork bks bns := by
+  have hne : bks ≠ tgtBK := by
+    intro heq
+    subst heq
+    exact h0 (kingMetric_self tgtBK)
+  have hw : blackWork bks bns = kingMetric bks tgtBK + 8 * nworkB bns := by
+    unfold blackWork
+    split_ifs with h
+    · simp only [beq_iff_eq, Bool.and_eq_true] at h
+      exact (hne h.1).elim
+    · rfl
+  rw [hw]
+  unfold blackWork
+  split_ifs <;> omega
+
+theorem nworkW_eq_zero_of_staging {wns : Square} (h : wns = tgtWN ∨ wns = waitWN) :
+    nworkW wns = 0 := by
+  unfold nworkW
+  rcases h with rfl | rfl
+  · simp only [beq_self_eq_true, Bool.true_or, ite_true]
+  · simp only [beq_self_eq_true, Bool.or_true, ite_true]
+
+theorem nworkB_eq_zero_of_staging {bns : Square} (h : bns = tgtBN ∨ bns = waitBN) :
+    nworkB bns = 0 := by
+  unfold nworkB
+  rcases h with rfl | rfl
+  · simp only [beq_self_eq_true, Bool.true_or, ite_true]
+  · simp only [beq_self_eq_true, Bool.or_true, ite_true]
+
+theorem whiteWork_lt_of_nwork {wks wns ns : Square}
+    (h0 : nworkW wns ≠ 0)
+    (hlt : nworkW ns < nworkW wns) :
+    whiteWork wks ns < whiteWork wks wns := by
+  have hw : whiteWork wks wns = kingMetric wks tgtWK + 8 * nworkW wns := by
+    unfold whiteWork
+    split_ifs with h
+    · simp only [beq_iff_eq, Bool.and_eq_true, Bool.or_eq_true] at h
+      exact (h0 (nworkW_eq_zero_of_staging h.2)).elim
+    · rfl
+  have : 0 < nworkW wns := Nat.pos_of_ne_zero h0
+  rw [hw]
+  unfold whiteWork
+  split_ifs <;> omega
+
+theorem blackWork_lt_of_nwork {bks bns ns : Square}
+    (h0 : nworkB bns ≠ 0)
+    (hlt : nworkB ns < nworkB bns) :
+    blackWork bks ns < blackWork bks bns := by
+  have hw : blackWork bks bns = kingMetric bks tgtBK + 8 * nworkB bns := by
+    unfold blackWork
+    split_ifs with h
+    · simp only [beq_iff_eq, Bool.and_eq_true, Bool.or_eq_true] at h
+      exact (h0 (nworkB_eq_zero_of_staging h.2)).elim
+    · rfl
+  have : 0 < nworkB bns := Nat.pos_of_ne_zero h0
+  rw [hw]
+  unfold blackWork
+  split_ifs <;> omega
+
+theorem tempo_le (s : KNState) : s.tempo ≤ 1 := by
+  cases htm : s.toMove
+  · simp only [tempo, htm]; split_ifs <;> omega
+  · simp only [tempo, htm]; split_ifs <;> omega
+
+theorem finaleMu_le {s : KNState} {n : Nat} (h : s.finaleMu = some n) : n ≤ 8 := by
+  unfold finaleMu at h
+  cases h0 : (s.mateB && s.wk == tgtWK && s.bk == mateBK && s.wn == mateWN && s.bn == mateBN)
+  · rw [h0, if_neg Bool.false_ne_true] at h
+    cases h1 : (s.wk == tgtWK && s.bk == mateBK && s.wn == tgtWN && s.bn == mateBN &&
+        s.toMove == .white)
+    · rw [h1, if_neg Bool.false_ne_true] at h
+      cases h2 : (s.wk == tgtWK && s.bk == mateBK && s.wn == tgtWN && s.bn == tgtBN &&
+          s.toMove == .black)
+      · rw [h2, if_neg Bool.false_ne_true] at h
+        cases h3 : (s.wk == tempoWK2 && s.bk == mateBK && s.wn == tgtWN && s.bn == tgtBN &&
+            s.toMove == .white)
+        · rw [h3, if_neg Bool.false_ne_true] at h
+          cases h4 : (s.wk == tempoWK2 && s.bk == Square.g8 && s.wn == tgtWN &&
+              s.bn == tgtBN && s.toMove == .black)
+          · rw [h4, if_neg Bool.false_ne_true] at h
+            cases h5 : (s.wk == tempoWK && s.bk == Square.g8 && s.wn == tgtWN &&
+                s.bn == tgtBN && s.toMove == .white)
+            · rw [h5, if_neg Bool.false_ne_true] at h
+              cases h6 : (s.wk == tempoWK && s.bk == tgtBK && s.wn == tgtWN &&
+                  s.bn == tgtBN && s.toMove == .black)
+              · rw [h6, if_neg Bool.false_ne_true] at h
+                cases h7 : (s.assembledStrict && s.toMove == .white)
+                · rw [h7, if_neg Bool.false_ne_true] at h
+                  cases h8 : (s.wk == tempoWK && s.bk == mateBK && s.wn == tgtWN &&
+                      s.bn == tgtBN && s.toMove == .white)
+                  · rw [h8, if_neg Bool.false_ne_true] at h
+                    cases h9 : (s.wk == tempoWK && s.bk == Square.g8 && s.wn == tgtWN &&
+                        s.bn == tgtBN && s.toMove == .black)
+                    · rw [h9, if_neg Bool.false_ne_true] at h
+                      cases h10 : (s.wk == tgtWK && s.bk == Square.g8 && s.wn == tgtWN &&
+                          s.bn == tgtBN && s.toMove == .white)
+                      · rw [h10, if_neg Bool.false_ne_true] at h
+                        cases h11 : (s.assembledStrict && s.toMove == .black)
+                        · rw [h11, if_neg Bool.false_ne_true] at h
+                          cases h12 : (s.wk == tgtWK && s.bk == tgtBK && s.bn == tgtBN &&
+                              s.wn == waitWN && s.toMove == .white)
+                          · rw [h12, if_neg Bool.false_ne_true] at h
+                            nomatch h
+                          · rw [h12] at h; injection h with hn; omega
+                        · rw [h11] at h; injection h with hn; omega
+                      · rw [h10] at h; injection h with hn; omega
+                    · rw [h9] at h; injection h with hn; omega
+                  · rw [h8] at h; injection h with hn; omega
+                · rw [h7] at h; injection h with hn; omega
+              · rw [h6] at h; injection h with hn; omega
+            · rw [h5] at h; injection h with hn; omega
+          · rw [h4] at h; injection h with hn; omega
+        · rw [h3] at h; injection h with hn; omega
+      · rw [h2] at h; injection h with hn; omega
+    · rw [h1] at h; injection h with hn; omega
+  · rw [h0] at h; injection h with hn; omega
+
+theorem mu_staging {s : KNState} (hm : s.mateB = false) (hf : s.finaleMu = none) :
+    s.mu = 2 * (whiteWork s.wk s.wn + blackWork s.bk s.bn) + s.tempo +
+      (if s.inCheckB s.toMove then 256 else 0) + 16 := by
+  unfold mu
+  rw [if_neg (Bool.eq_false_iff.mp hm), hf]
+
+theorem staging_mu_ge {s : KNState} (hm : s.mateB = false) (hf : s.finaleMu = none) :
+    16 ≤ s.mu := by
+  rw [mu_staging hm hf]
+  omega
+
+theorem fastKingStep_apply_okB {s : KNState} {d : Square}
+    (hok : s.okB = true)
+    (hs : fastKingStep (s.king s.toMove) d (s.king s.toMove.other)
+      (s.knight s.toMove.other) (s.knight s.toMove) = true) :
+    (s.apply (.king d)).okB = true := by
+  cases ht : s.toMove with
+  | white =>
+    obtain ⟨_, _, _, h4, h5, h6, _, _⟩ := (okB_iff s).mp hok
+    obtain ⟨_, hdek, hden, hdon, hsafe⟩ := (fastKingStep_iff _ _ _ _ _).mp hs
+    simp only [king, knight, Color.other, ht] at hdek hden hdon hsafe
+    have hnk : ¬ KingAttacks s.bk d := ((kingAttackedAt_eq_false _ _ _).mp hsafe).1
+    rw [okB_iff]
+    simp only [apply, ht, inCheckB, king, knight, Color.other]
+    exact ⟨hdek, hdon, hden, h4, h5, h6,
+      fun hk => hnk (kingAttacks_symmetric.mp hk), hsafe⟩
+  | black =>
+    obtain ⟨_, h2, h3, _, _, h6, _, _⟩ := (okB_iff s).mp hok
+    obtain ⟨_, hdek, hden, hdon, hsafe⟩ := (fastKingStep_iff _ _ _ _ _).mp hs
+    simp only [king, knight, Color.other, ht] at hdek hden hdon hsafe
+    have hnk : ¬ KingAttacks s.wk d := ((kingAttackedAt_eq_false _ _ _).mp hsafe).1
+    rw [okB_iff]
+    simp only [apply, ht, inCheckB, king, knight, Color.other]
+    exact ⟨fun h => hdek h.symm, h2, h3, hden, hdon, h6, hnk, hsafe⟩
+
+theorem fastKnightMove_apply_okB {s : KNState} {d : Square}
+    (hok : s.okB = true)
+    (hs : s.fastLegal (.knight d) = true) :
+    (s.apply (.knight d)).okB = true := by
+  cases ht : s.toMove with
+  | white =>
+    obtain ⟨h1, _, h3, _, h5, _, hka, _⟩ := (okB_iff s).mp hok
+    simp only [fastLegal, king, knight, Color.other, ht] at hs
+    obtain ⟨_, hdk, hdek, hden, hsafe⟩ := (fastKnightMove_iff _ _ _ _ _).mp hs
+    rw [okB_iff]
+    simp only [apply, ht, inCheckB, king, knight, Color.other]
+    exact ⟨h1, fun h => hdk h.symm, h3, fun h => hdek h.symm, h5, hden, hka, hsafe⟩
+  | black =>
+    obtain ⟨h1, h2, _, h4, _, _, hka, _⟩ := (okB_iff s).mp hok
+    simp only [fastLegal, king, knight, Color.other, ht] at hs
+    obtain ⟨_, hdk, hdek, hden, hsafe⟩ := (fastKnightMove_iff _ _ _ _ _).mp hs
+    rw [okB_iff]
+    simp only [apply, ht, inCheckB, king, knight, Color.other]
+    exact ⟨h1, h2, fun h => hdek h.symm, h4, fun h => hdk h.symm, fun h => hden h.symm,
+      hka, hsafe⟩
+
+theorem oneOk_king_of_fastKingStep {s : KNState} {d : Square}
+    (hok : s.okB = true)
+    (hs : fastKingStep (s.king s.toMove) d (s.king s.toMove.other)
+      (s.knight s.toMove.other) (s.knight s.toMove) = true) :
+    s.oneOk (.king d) = true := by
+  rw [oneOk_iff, fastLegal]
+  exact ⟨hs, fastKingStep_apply_okB hok hs⟩
+
+theorem oneOk_knight_of_fastLegal {s : KNState} {d : Square}
+    (hok : s.okB = true) (hs : s.fastLegal (.knight d) = true) :
+    s.oneOk (.knight d) = true :=
+  (oneOk_iff s (.knight d)).mpr ⟨hs, fastKnightMove_apply_okB hok hs⟩
+
 theorem chain_sound {s0 s : KNState} (hok : s.okB = true) :
     ∀ n, chain s0 s n = true → ∃ s1 : KNState, s1.okB = true ∧
       Reachable s.toPosition s1.toPosition ∧ (s1.mateB = true ∨ s1.mu < s0.mu) := by
@@ -1617,23 +1843,275 @@ theorem oneOk_progress {s : KNState} {m : KNMove} (hok : s.okB = true)
   obtain ⟨hfl, hok1⟩ := (oneOk_iff s m).mp hokm
   exact ⟨s.apply m, hok1, reachable_apply hok hfl, hp⟩
 
+theorem tempo_eq_zero_of_whiteWork_pos {s : KNState} (ht : s.toMove = .white)
+    (hp : 0 < whiteWork s.wk s.wn) : s.tempo = 0 := by
+  unfold tempo
+  rw [ht]
+  refine if_neg ?_
+  simpa only [beq_iff_eq] using Nat.ne_of_gt hp
+
+theorem tempo_eq_zero_of_blackWork_pos {s : KNState} (ht : s.toMove = .black)
+    (hp : 0 < blackWork s.bk s.bn) : s.tempo = 0 := by
+  unfold tempo
+  rw [ht]
+  refine if_neg ?_
+  simpa only [beq_iff_eq] using Nat.ne_of_gt hp
+
+theorem inCheckB_black_after_whiteKing {s : KNState} {d : Square}
+    (ht : s.toMove = .white) (hok : s.okB = true)
+    (hs : fastKingStep s.wk d s.bk s.bn s.wn = true) :
+    ({ s with toMove := .black, wk := d } : KNState).inCheckB .black = false := by
+  obtain ⟨_, _, _, _, _, _, _, hnc⟩ := (okB_iff s).mp hok
+  obtain ⟨_, _, _, _, hsafe⟩ := (fastKingStep_iff _ _ _ _ _).mp hs
+  simp only [inCheckB, king, knight, Color.other, ht] at hnc
+  rw [kingAttackedAt_eq_false] at hnc
+  have hnk := ((kingAttackedAt_eq_false d s.bk s.bn).mp hsafe).1
+  simp only [inCheckB, king, knight, Color.other]
+  rw [kingAttackedAt_eq_false]
+  exact ⟨fun hk => hnk (kingAttacks_symmetric.mp hk), hnc.2⟩
+
+theorem inCheckB_white_after_blackKing {s : KNState} {d : Square}
+    (ht : s.toMove = .black) (hok : s.okB = true)
+    (hs : fastKingStep s.bk d s.wk s.wn s.bn = true) :
+    ({ s with toMove := .white, bk := d } : KNState).inCheckB .white = false := by
+  obtain ⟨_, _, _, _, _, _, _, hnc⟩ := (okB_iff s).mp hok
+  obtain ⟨_, _, _, _, hsafe⟩ := (fastKingStep_iff _ _ _ _ _).mp hs
+  simp only [inCheckB, king, knight, Color.other, ht] at hnc
+  rw [kingAttackedAt_eq_false] at hnc
+  have hnk := ((kingAttackedAt_eq_false d s.wk s.wn).mp hsafe).1
+  simp only [inCheckB, king, knight, Color.other]
+  rw [kingAttackedAt_eq_false]
+  exact ⟨fun hk => hnk (kingAttacks_symmetric.mp hk), hnc.2⟩
+
+theorem inCheckB_black_after_whiteKnight {s : KNState} {d : Square}
+    (hok : s.okB = true) (hna : ¬ KnightAttacks d s.bk) :
+    ({ s with toMove := .black, wn := d } : KNState).inCheckB .black = false := by
+  obtain ⟨_, _, _, _, _, _, hka, _⟩ := (okB_iff s).mp hok
+  simp only [inCheckB, king, knight, Color.other]
+  rw [kingAttackedAt_eq_false]
+  exact ⟨hka, hna⟩
+
+theorem inCheckB_white_after_blackKnight {s : KNState} {d : Square}
+    (hok : s.okB = true) (hna : ¬ KnightAttacks d s.wk) :
+    ({ s with toMove := .white, bn := d } : KNState).inCheckB .white = false := by
+  obtain ⟨_, _, _, _, _, _, hka, _⟩ := (okB_iff s).mp hok
+  simp only [inCheckB, king, knight, Color.other]
+  rw [kingAttackedAt_eq_false]
+  exact ⟨fun hk => hka (kingAttacks_symmetric.mp hk), hna⟩
+
+theorem mu_drop_of_whiteKing {s : KNState} {d : Square}
+    (hm : s.mateB = false) (hf : s.finaleMu = none) (ht : s.toMove = .white)
+    (hok : s.okB = true)
+    (hstep : fastKingStep s.wk d s.bk s.bn s.wn = true)
+    (h0 : kingMetric s.wk tgtWK ≠ 0)
+    (hlt : kingMetric d tgtWK < kingMetric s.wk tgtWK) :
+    (s.apply (.king d)).mateB = true ∨ (s.apply (.king d)).mu < s.mu := by
+  set s1 := s.apply (.king d)
+  have hw : whiteWork d s.wn < whiteWork s.wk s.wn := whiteWork_lt_of_kingMetric h0 hlt
+  have hpos : 0 < whiteWork s.wk s.wn := Nat.lt_of_le_of_lt (Nat.zero_le _) hw
+  have ht0 : s.tempo = 0 := tempo_eq_zero_of_whiteWork_pos ht hpos
+  have hge : 16 ≤ s.mu := staging_mu_ge hm hf
+  by_cases hm1 : s1.mateB = true
+  · exact Or.inl hm1
+  have hm1f : s1.mateB = false := eq_false_of_ne_true hm1
+  match hf1 : s1.finaleMu with
+  | some n =>
+    have hmu1 : s1.mu = n := by
+      unfold mu
+      rw [if_neg (Bool.eq_false_iff.mp hm1f), hf1]
+    have hn : n ≤ 8 := finaleMu_le hf1
+    right
+    omega
+  | none =>
+    have hchk1 : s1.inCheckB .black = false := by
+      simpa only [s1, apply, ht] using inCheckB_black_after_whiteKing ht hok hstep
+    have hs := mu_staging hm hf
+    have hs1 := mu_staging hm1f hf1
+    have hwk : s1.wk = d := by simp only [s1, apply, ht]
+    have hbk : s1.bk = s.bk := by simp only [s1, apply, ht]
+    have hwn : s1.wn = s.wn := by simp only [s1, apply, ht]
+    have hbn : s1.bn = s.bn := by simp only [s1, apply, ht]
+    have ht1c : s1.toMove = .black := by simp only [s1, apply, ht]
+    rw [hwk, hbk, hwn, hbn, ht1c] at hs1
+    have ht1 : s1.tempo ≤ 1 := tempo_le s1
+    have hbonus : (if s1.inCheckB .black then 256 else 0) = 0 :=
+      if_neg (Bool.eq_false_iff.mp hchk1)
+    right
+    omega
+
+theorem mu_drop_of_blackKing {s : KNState} {d : Square}
+    (hm : s.mateB = false) (hf : s.finaleMu = none) (ht : s.toMove = .black)
+    (hok : s.okB = true)
+    (hstep : fastKingStep s.bk d s.wk s.wn s.bn = true)
+    (h0 : kingMetric s.bk tgtBK ≠ 0)
+    (hlt : kingMetric d tgtBK < kingMetric s.bk tgtBK) :
+    (s.apply (.king d)).mateB = true ∨ (s.apply (.king d)).mu < s.mu := by
+  set s1 := s.apply (.king d)
+  have hw : blackWork d s.bn < blackWork s.bk s.bn := blackWork_lt_of_kingMetric h0 hlt
+  have hpos : 0 < blackWork s.bk s.bn := Nat.lt_of_le_of_lt (Nat.zero_le _) hw
+  have ht0 : s.tempo = 0 := tempo_eq_zero_of_blackWork_pos ht hpos
+  have hge : 16 ≤ s.mu := staging_mu_ge hm hf
+  by_cases hm1 : s1.mateB = true
+  · exact Or.inl hm1
+  have hm1f : s1.mateB = false := eq_false_of_ne_true hm1
+  match hf1 : s1.finaleMu with
+  | some n =>
+    have hmu1 : s1.mu = n := by
+      unfold mu
+      rw [if_neg (Bool.eq_false_iff.mp hm1f), hf1]
+    have hn : n ≤ 8 := finaleMu_le hf1
+    right
+    omega
+  | none =>
+    have hchk1 : s1.inCheckB .white = false := by
+      simpa only [s1, apply, ht] using inCheckB_white_after_blackKing ht hok hstep
+    have hs := mu_staging hm hf
+    have hs1 := mu_staging hm1f hf1
+    have hwk : s1.wk = s.wk := by simp only [s1, apply, ht]
+    have hbk : s1.bk = d := by simp only [s1, apply, ht]
+    have hwn : s1.wn = s.wn := by simp only [s1, apply, ht]
+    have hbn : s1.bn = s.bn := by simp only [s1, apply, ht]
+    have ht1c : s1.toMove = .white := by simp only [s1, apply, ht]
+    rw [hwk, hbk, hwn, hbn, ht1c] at hs1
+    have ht1 : s1.tempo ≤ 1 := tempo_le s1
+    have hbonus : (if s1.inCheckB .white then 256 else 0) = 0 :=
+      if_neg (Bool.eq_false_iff.mp hchk1)
+    right
+    omega
+
+theorem mu_drop_of_whiteKnight {s : KNState} {d : Square}
+    (hm : s.mateB = false) (hf : s.finaleMu = none) (ht : s.toMove = .white)
+    (hok : s.okB = true) (hna : ¬ KnightAttacks d s.bk)
+    (h0 : nworkW s.wn ≠ 0) (hlt : nworkW d < nworkW s.wn) :
+    (s.apply (.knight d)).mateB = true ∨ (s.apply (.knight d)).mu < s.mu := by
+  set s1 := s.apply (.knight d)
+  have hw : whiteWork s.wk d < whiteWork s.wk s.wn := whiteWork_lt_of_nwork h0 hlt
+  have hpos : 0 < whiteWork s.wk s.wn := Nat.lt_of_le_of_lt (Nat.zero_le _) hw
+  have ht0 : s.tempo = 0 := tempo_eq_zero_of_whiteWork_pos ht hpos
+  have hge : 16 ≤ s.mu := staging_mu_ge hm hf
+  by_cases hm1 : s1.mateB = true
+  · exact Or.inl hm1
+  have hm1f : s1.mateB = false := eq_false_of_ne_true hm1
+  match hf1 : s1.finaleMu with
+  | some n =>
+    have hmu1 : s1.mu = n := by
+      unfold mu
+      rw [if_neg (Bool.eq_false_iff.mp hm1f), hf1]
+    have hn : n ≤ 8 := finaleMu_le hf1
+    right
+    omega
+  | none =>
+    have hchk1 : s1.inCheckB .black = false := by
+      simpa only [s1, apply, ht] using inCheckB_black_after_whiteKnight hok hna
+    have hs := mu_staging hm hf
+    have hs1 := mu_staging hm1f hf1
+    have hwk : s1.wk = s.wk := by simp only [s1, apply, ht]
+    have hbk : s1.bk = s.bk := by simp only [s1, apply, ht]
+    have hwn : s1.wn = d := by simp only [s1, apply, ht]
+    have hbn : s1.bn = s.bn := by simp only [s1, apply, ht]
+    have ht1c : s1.toMove = .black := by simp only [s1, apply, ht]
+    rw [hwk, hbk, hwn, hbn, ht1c] at hs1
+    have ht1 : s1.tempo ≤ 1 := tempo_le s1
+    have hbonus : (if s1.inCheckB .black then 256 else 0) = 0 :=
+      if_neg (Bool.eq_false_iff.mp hchk1)
+    right
+    omega
+
+theorem mu_drop_of_blackKnight {s : KNState} {d : Square}
+    (hm : s.mateB = false) (hf : s.finaleMu = none) (ht : s.toMove = .black)
+    (hok : s.okB = true) (hna : ¬ KnightAttacks d s.wk)
+    (h0 : nworkB s.bn ≠ 0) (hlt : nworkB d < nworkB s.bn) :
+    (s.apply (.knight d)).mateB = true ∨ (s.apply (.knight d)).mu < s.mu := by
+  set s1 := s.apply (.knight d)
+  have hw : blackWork s.bk d < blackWork s.bk s.bn := blackWork_lt_of_nwork h0 hlt
+  have hpos : 0 < blackWork s.bk s.bn := Nat.lt_of_le_of_lt (Nat.zero_le _) hw
+  have ht0 : s.tempo = 0 := tempo_eq_zero_of_blackWork_pos ht hpos
+  have hge : 16 ≤ s.mu := staging_mu_ge hm hf
+  by_cases hm1 : s1.mateB = true
+  · exact Or.inl hm1
+  have hm1f : s1.mateB = false := eq_false_of_ne_true hm1
+  match hf1 : s1.finaleMu with
+  | some n =>
+    have hmu1 : s1.mu = n := by
+      unfold mu
+      rw [if_neg (Bool.eq_false_iff.mp hm1f), hf1]
+    have hn : n ≤ 8 := finaleMu_le hf1
+    right
+    omega
+  | none =>
+    have hchk1 : s1.inCheckB .white = false := by
+      simpa only [s1, apply, ht] using inCheckB_white_after_blackKnight hok hna
+    have hs := mu_staging hm hf
+    have hs1 := mu_staging hm1f hf1
+    have hwk : s1.wk = s.wk := by simp only [s1, apply, ht]
+    have hbk : s1.bk = s.bk := by simp only [s1, apply, ht]
+    have hwn : s1.wn = s.wn := by simp only [s1, apply, ht]
+    have hbn : s1.bn = d := by simp only [s1, apply, ht]
+    have ht1c : s1.toMove = .white := by simp only [s1, apply, ht]
+    rw [hwk, hbk, hwn, hbn, ht1c] at hs1
+    have ht1 : s1.tempo ≤ 1 := tempo_le s1
+    have hbonus : (if s1.inCheckB .white then 256 else 0) = 0 :=
+      if_neg (Bool.eq_false_iff.mp hchk1)
+    right
+    omega
+
 theorem reducingKingProgress_sound {s : KNState} (hok : s.okB = true)
     (h : s.reducingKingProgress = true) : ∃ s1, Progress s s1 := by
-  simp only [reducingKingProgress] at h
-  obtain ⟨d, _, hd⟩ := List.any_eq_true.mp h
-  simp only [reducingKingDest, Bool.and_eq_true] at hd
-  obtain ⟨⟨hokm, _⟩, hrest⟩ := hd
-  simp only [Bool.or_eq_true, decide_eq_true_iff] at hrest
-  exact oneOk_progress hok hokm hrest
+  by_cases hm : s.mateB = true
+  · exact ⟨s, hok, Reachable.refl, Or.inl hm⟩
+  have hm' : s.mateB = false := eq_false_of_ne_true hm
+  simp only [reducingKingProgress, Bool.and_eq_true] at h
+  obtain ⟨hhas, hfin⟩ := h
+  have hf : s.finaleMu = none := by
+    cases hfm : s.finaleMu <;> simp [hfm, Option.isNone] at hfin ⊢
+  simp only [hasReducingKing, Bool.and_eq_true] at hhas
+  obtain ⟨hcur, hany⟩ := hhas
+  obtain ⟨d, _, hd⟩ := List.any_eq_true.mp hany
+  simp only [Bool.and_eq_true] at hd
+  obtain ⟨hstep, hlt⟩ := hd
+  have hokm := oneOk_king_of_fastKingStep hok hstep
+  have hp : (s.apply (.king d)).mateB = true ∨ (s.apply (.king d)).mu < s.mu := by
+    cases ht : s.toMove with
+    | white =>
+      simp only [ht, king, knight, Color.other, beq_iff_eq, decide_eq_true_iff] at hcur hstep hlt
+      exact mu_drop_of_whiteKing hm' hf ht hok hstep hcur hlt
+    | black =>
+      simp only [ht, king, knight, Color.other, beq_iff_eq, decide_eq_true_iff] at hcur hstep hlt
+      exact mu_drop_of_blackKing hm' hf ht hok hstep hcur hlt
+  exact oneOk_progress hok hokm hp
 
 theorem reducingKnightProgress_sound {s : KNState} (hok : s.okB = true)
     (h : s.reducingKnightProgress = true) : ∃ s1, Progress s s1 := by
-  simp only [reducingKnightProgress] at h
-  obtain ⟨d, _, hd⟩ := List.any_eq_true.mp h
-  simp only [reducingKnightDest, Bool.and_eq_true] at hd
-  obtain ⟨⟨hokm, _⟩, hrest⟩ := hd
-  simp only [Bool.or_eq_true, decide_eq_true_iff] at hrest
-  exact oneOk_progress hok hokm hrest
+  by_cases hm : s.mateB = true
+  · exact ⟨s, hok, Reachable.refl, Or.inl hm⟩
+  have hm' : s.mateB = false := eq_false_of_ne_true hm
+  simp only [reducingKnightProgress, Bool.and_eq_true] at h
+  obtain ⟨hhas, hfin⟩ := h
+  have hf : s.finaleMu = none := by
+    cases hfm : s.finaleMu <;> simp [hfm, Option.isNone] at hfin ⊢
+  simp only [hasReducingKnight, Bool.and_eq_true] at hhas
+  obtain ⟨hcur, hany⟩ := hhas
+  obtain ⟨d, _, hd⟩ := List.any_eq_true.mp hany
+  simp only [Bool.and_eq_true] at hd
+  obtain ⟨⟨hfl, hna⟩, hlt⟩ := hd
+  have hokm := oneOk_knight_of_fastLegal hok hfl
+  have hnaF : decide (KnightAttacks d (s.king s.toMove.other)) = false := by
+    cases hdec : decide (KnightAttacks d (s.king s.toMove.other)) with
+    | false => rfl
+    | true =>
+      simp only [hdec, Bool.not_true] at hna
+      nomatch hna
+  have hna' : ¬ KnightAttacks d (s.king s.toMove.other) :=
+    decide_eq_false_iff_not.mp hnaF
+  have hp : (s.apply (.knight d)).mateB = true ∨ (s.apply (.knight d)).mu < s.mu := by
+    cases ht : s.toMove with
+    | white =>
+      simp only [ht, king, knight, Color.other, beq_iff_eq, decide_eq_true_iff] at hcur hlt hna'
+      exact mu_drop_of_whiteKnight hm' hf ht hok hna' hcur hlt
+    | black =>
+      simp only [ht, king, knight, Color.other, beq_iff_eq, decide_eq_true_iff] at hcur hlt hna'
+      exact mu_drop_of_blackKnight hm' hf ht hok hna' hcur hlt
+  exact oneOk_progress hok hokm hp
 
 theorem checkState_sound {s : KNState} (hok : s.okB = true) (h : s.checkState = true) :
     ∃ s1, Progress s s1 := by
