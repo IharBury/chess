@@ -83,6 +83,10 @@ theorem rot180_kingsBoard (wk bk : Square) (h : wk ≠ bk) :
       change none = kingsBoard bk.rot180 wk.rot180 s
       rw [kingsBoard_other bk.rot180 wk.rot180 s hsB hsW]
 
+end Board
+
+namespace Position
+
 theorem existsPawnAttacking_eq_false_of {b : Board} {c : Color} {t : Square}
     (h : ∀ s, b s ≠ some { color := c, kind := .pawn }) :
     existsPawnAttacking b c t = false := by
@@ -92,50 +96,47 @@ theorem existsPawnAttacking_eq_false_of {b : Board} {c : Color} {t : Square}
     exact (h s ((hasPawn_eq_true_iff _ _ _).mp hs)).elim
 
 theorem existsPawnAttacking_kingsPawnBoard_other (wk bk ps t : Square) (c : Color) :
-    existsPawnAttacking (kingsPawnBoard wk bk ps c) c.other t = false := by
+    existsPawnAttacking (Board.kingsPawnBoard wk bk ps c) c.other t = false := by
   refine existsPawnAttacking_eq_false_of ?_
   intro s hs
-  unfold kingsPawnBoard at hs
-  split_ifs at hs <;> first | cases hs | cases (Color.other_ne c) (by injection hs with h; injection h)
+  unfold Board.kingsPawnBoard at hs
+  split_ifs at hs <;> try simp at hs
+  exact (Color.other_ne c) hs.symm
 
 theorem existsPawnAttacking_kingsQueenBoard (wk bk qs t : Square) (c cq : Color) :
-    existsPawnAttacking (kingsQueenBoard wk bk qs c) cq t = false := by
+    existsPawnAttacking (Board.kingsQueenBoard wk bk qs c) cq t = false := by
   refine existsPawnAttacking_eq_false_of ?_
   intro s hs
-  unfold kingsQueenBoard at hs
+  unfold Board.kingsQueenBoard at hs
   split_ifs at hs <;> cases hs
 
 theorem existsPawnAttacking_kingsRookBoard (wk bk rs t : Square) (c cq : Color) :
-    existsPawnAttacking (kingsRookBoard wk bk rs c) cq t = false := by
+    existsPawnAttacking (Board.kingsRookBoard wk bk rs c) cq t = false := by
   refine existsPawnAttacking_eq_false_of ?_
   intro s hs
-  unfold kingsRookBoard at hs
+  unfold Board.kingsRookBoard at hs
   split_ifs at hs <;> cases hs
 
 theorem existsPawnAttacking_kingsBishopBoard (wk bk bs t : Square) (c cq : Color) :
-    existsPawnAttacking (kingsBishopBoard wk bk bs c) cq t = false := by
+    existsPawnAttacking (Board.kingsBishopBoard wk bk bs c) cq t = false := by
   refine existsPawnAttacking_eq_false_of ?_
   intro s hs
-  unfold kingsBishopBoard at hs
+  unfold Board.kingsBishopBoard at hs
   split_ifs at hs <;> cases hs
 
 theorem existsPawnAttacking_kingsKnightBoard (wk bk ns t : Square) (c cq : Color) :
-    existsPawnAttacking (kingsKnightBoard wk bk ns c) cq t = false := by
+    existsPawnAttacking (Board.kingsKnightBoard wk bk ns c) cq t = false := by
   refine existsPawnAttacking_eq_false_of ?_
   intro s hs
-  unfold kingsKnightBoard at hs
+  unfold Board.kingsKnightBoard at hs
   split_ifs at hs <;> cases hs
 
 theorem existsPawnAttacking_kingsBoard (wk bk t : Square) (c : Color) :
-    existsPawnAttacking (kingsBoard wk bk) c t = false := by
+    existsPawnAttacking (Board.kingsBoard wk bk) c t = false := by
   refine existsPawnAttacking_eq_false_of ?_
   intro s hs
-  unfold kingsBoard at hs
+  unfold Board.kingsBoard at hs
   split_ifs at hs <;> cases hs
-
-end Board
-
-namespace Position
 
 theorem file_beq_rot180 (s t : Square) :
     (s.file == t.file) = (s.rot180.file == t.rot180.file) := by
@@ -186,10 +187,10 @@ theorem isNone_rot180 (p : Position) (s : Square) :
 
 theorem destEnemy_rot180 (p : Position) (m : Move) (c : Color) :
     (match p.board m.dst with
-      | some q => (q.color != c) && (q.kind != .king)
+      | some q => (q.color != c) && (q.kind != PieceKind.king)
       | none => false) =
     (match p.rot180.board m.rot180.dst with
-      | some q => (q.color != c.other) && (q.kind != .king)
+      | some q => (q.color != c.other) && (q.kind != PieceKind.king)
       | none => false) := by
   rw [board_dst_rot180]
   cases h : p.board m.dst with
@@ -214,7 +215,6 @@ theorem pawnMoveOk_rot180 (p : Position) (m : Move) (he : p.enPassant = none) :
   | none => simp
   | some piece =>
     simp only [Option.map_some]
-    have hc : piece.flip.color = piece.color.other := rfl
     have hpromo :
         (if m.dst.rank == pawnPromotionRank piece.color then
             match m.promotion with
@@ -226,8 +226,9 @@ theorem pawnMoveOk_rot180 (p : Position) (m : Move) (he : p.enPassant = none) :
             | some k => k.canPromoteTo
             | none => false
           else m.rot180.promotion == none) := by
-      simp only [Move.rot180_promotion, Move.rot180_dst, Piece.flip, hc]
+      simp only [Move.rot180_promotion, Move.rot180_dst, Piece.flip]
       rw [rank_beq_promo_rot180]
+      rfl
     have hempty :
         (p.board m.dst).isNone = (p.rot180.board m.rot180.dst).isNone :=
       isNone_rot180 p m.dst
@@ -239,14 +240,15 @@ theorem pawnMoveOk_rot180 (p : Position) (m : Move) (he : p.enPassant = none) :
           decide (Square.deltaRank m.rot180.src m.rot180.dst =
             pawnPushDelta piece.flip.color) &&
           (p.rot180.board m.rot180.dst).isNone) := by
-      simp only [Move.rot180_src, Move.rot180_dst, Piece.flip, hc]
+      simp only [Move.rot180_src, Move.rot180_dst, Piece.flip]
       rw [file_beq_rot180, deltaRank_push_rot180, hempty]
+      rfl
     have hmid : (p.board ⟨m.src.file, pawnJumpOverRank piece.color⟩).isNone =
         (p.rot180.board ⟨m.rot180.src.file, pawnJumpOverRank piece.flip.color⟩).isNone := by
       have hj := jumpOver_rot180 piece.color m.src
       have : (⟨m.src.file, pawnJumpOverRank piece.color⟩ : Square).rot180 =
           ⟨m.rot180.src.file, pawnJumpOverRank piece.flip.color⟩ := by
-        simpa [Move.rot180_src, Piece.flip, hc] using hj
+        simpa [Move.rot180_src, Piece.flip] using hj
       simpa [this] using isNone_rot180 p ⟨m.src.file, pawnJumpOverRank piece.color⟩
     have hdouble :
         ((m.src.rank == pawnStartRank piece.color) &&
@@ -261,23 +263,41 @@ theorem pawnMoveOk_rot180 (p : Position) (m : Move) (he : p.enPassant = none) :
           (p.rot180.board m.rot180.dst).isNone &&
           (p.rot180.board ⟨m.rot180.src.file,
             pawnJumpOverRank piece.flip.color⟩).isNone) := by
-      simp only [Move.rot180_src, Move.rot180_dst, Piece.flip, hc]
-      rw [rank_beq_start_rot180, file_beq_rot180, deltaRank_double_rot180, hempty, hmid]
+      simp only [Move.rot180_src, Move.rot180_dst, Piece.flip]
+      rw [rank_beq_start_rot180, file_beq_rot180, deltaRank_double_rot180,
+        hempty, hmid]
+      rfl
     have hcap :
         (decide (PawnAttacks piece.color m.src m.dst) &&
           (match p.board m.dst with
-            | some q => (q.color != piece.color) && (q.kind != .king)
+            | some q => (q.color != piece.color) && (q.kind != PieceKind.king)
             | none => false)) =
         (decide (PawnAttacks piece.flip.color m.rot180.src m.rot180.dst) &&
           (match p.rot180.board m.rot180.dst with
-            | some q => (q.color != piece.flip.color) && (q.kind != .king)
+            | some q => (q.color != piece.flip.color) && (q.kind != PieceKind.king)
             | none => false)) := by
-      simp only [Move.rot180_src, Move.rot180_dst, Piece.flip, hc]
+      simp only [Move.rot180_src, Move.rot180_dst, Piece.flip]
       rw [pawnAttacks_decide_rot180, destEnemy_rot180]
+      rfl
     have hep : (p.enPassant == some m.dst) = false := by simp [he]
     have hepR : (p.rot180.enPassant == some m.rot180.dst) = false := by
       simp [rot180]
-    simp only [hpromo, hsingle, hdouble, hcap, hep, hepR]
+    have hepBoth :
+        (decide (PawnAttacks piece.color m.src m.dst) &&
+          (p.board m.dst).isNone && (p.enPassant == some m.dst)) =
+        (decide (PawnAttacks piece.flip.color m.rot180.src m.rot180.dst) &&
+          (p.rot180.board m.rot180.dst).isNone &&
+            (p.rot180.enPassant == some m.rot180.dst)) := by
+      simp only [hep, hepR, Bool.and_false]
+    apply congrArg₂ (· && ·)
+    · apply congrArg₂ (· || ·)
+      · apply congrArg₂ (· || ·)
+        · apply congrArg₂ (· || ·)
+          · exact hsingle
+          · exact hdouble
+        · exact hcap
+      · exact hepBoth
+    · exact hpromo
 
 theorem IsKingAndPawn.castling_eq {p : Position} (h : IsKingAndPawn p) :
     p.castling = ∅ := by
@@ -333,6 +353,10 @@ theorem IsTwoKings.rot180 {p : Position} (h : IsTwoKings p) :
   refine ⟨bk.rot180, wk.rot180, hne', hna', ?_, rfl, rfl⟩
   rw [rot180_board, hboard, Board.rot180_kingsBoard wk bk hne]
 
+theorem piece_eq_of_board {p : Position} {s : Square} {piece q : Piece}
+    (h1 : p.board s = some piece) (h2 : p.board s = some q) : piece = q :=
+  Option.some.inj (h1.symm.trans h2)
+
 theorem piece_of_kind_pawn (piece : Piece) (hk : piece.kind = .pawn) :
     piece = { color := piece.color, kind := .pawn } := by
   rcases piece with ⟨pc, pk⟩
@@ -362,9 +386,11 @@ theorem pawnMoveOk_promotion_of {p : Position} {m : Move} {c : Color}
   · have : (m.dst.rank == pawnPromotionRank c) = true := by simp [hr]
     simp only [this, ↓reduceIte] at hpr
     match hpromo : m.promotion with
-    | none => simp [hpromo] at hpr
+    | none =>
+      simp only [hpromo] at hpr
+      exact (Bool.false_ne_true hpr).elim
     | some k =>
-      simp [hpromo] at hpr
+      simp only [hpromo] at hpr
       exact Or.inl ⟨hr, k, rfl, hpr⟩
   · have : (m.dst.rank == pawnPromotionRank c) = false := by
       cases h : (m.dst.rank == pawnPromotionRank c)
@@ -431,7 +457,7 @@ theorem IsKingAndPawn.of_play {p : Position} {m : Move}
       cases hdstNone
     rcases hsrcEq with hsrcW | hsrcB | hsrcS
     · have hpiece : piece = { color := .white, kind := .king } :=
-        piece_eq_of_eq_some hsrcP (by rw [hsrcW, hboard, Board.kingsPawnBoard_white])
+        piece_eq_of_board hsrcP (by rw [hsrcW, hboard, Board.kingsPawnBoard_white])
       have ht : p.toMove = .white := by simpa [hpiece] using hcol'.symm
       have hba := boardAfter_king_no_castle p m (c := .white)
         (by simpa [ht] using (hside (by simp [hpiece])).1)
@@ -449,7 +475,8 @@ theorem IsKingAndPawn.of_play {p : Position} {m : Move}
           _ = Board.kingsPawnBoard m.dst bk ps c := hrel
       have hep' : (p.play m).enPassant = none := by
         rw [hplay, hpiece]
-        exact enPassantAfter_king _ _ _
+        exact enPassantAfter_king m Color.white
+          (p.boardAfter m { color := .white, kind := .king })
       have hna' : ¬ KingAttacks m.dst bk := by
         have hsafe' : (p.play m).board.kingIsAttacked .white = false := by simpa [ht] using hsafe
         have hiff := Board.kingsPawnBoard_kingIsAttacked_white m.dst bk ps c
@@ -459,9 +486,10 @@ theorem IsKingAndPawn.of_play {p : Position} {m : Move}
           rw [hboard']
           exact hiff.mpr (Or.inl (kingAttacks_symmetric.mp hk))
         exact Bool.false_ne_true (hsafe'.symm.trans this)
-      exact KingPawnPlay.stay ⟨m.dst, bk, ps, c, hdstB, hdstS, hbk_ps, hna', hboard', hcast', hep'⟩
+      exact KingPawnPlay.stay
+        ⟨m.dst, bk, ps, c, hdstB, hdstS, hbk_ps, hna', hboard', hcast', hep'⟩
     · have hpiece : piece = { color := .black, kind := .king } :=
-        piece_eq_of_eq_some hsrcP (by
+        piece_eq_of_board hsrcP (by
           rw [hsrcB, hboard, Board.kingsPawnBoard_black wk bk ps c hwk_bk])
       have ht : p.toMove = .black := by simpa [hpiece] using hcol'.symm
       have hba := boardAfter_king_no_castle p m (c := .black)
@@ -480,7 +508,8 @@ theorem IsKingAndPawn.of_play {p : Position} {m : Move}
           _ = Board.kingsPawnBoard wk m.dst ps c := hrel
       have hep' : (p.play m).enPassant = none := by
         rw [hplay, hpiece]
-        exact enPassantAfter_king _ _ _
+        exact enPassantAfter_king m Color.black
+          (p.boardAfter m { color := .black, kind := .king })
       have hna' : ¬ KingAttacks wk m.dst := by
         have hsafe' : (p.play m).board.kingIsAttacked .black = false := by simpa [ht] using hsafe
         have hiff := Board.kingsPawnBoard_kingIsAttacked_black wk m.dst ps c
@@ -490,98 +519,114 @@ theorem IsKingAndPawn.of_play {p : Position} {m : Move}
           rw [hboard']
           exact hiff.mpr (Or.inl hk)
         exact Bool.false_ne_true (hsafe'.symm.trans this)
-      exact KingPawnPlay.stay ⟨wk, m.dst, ps, c, hdstW.symm, hwk_ps, hdstS, hna', hboard', hcast', hep'⟩
+      exact KingPawnPlay.stay
+        ⟨wk, m.dst, ps, c, hdstW.symm, hwk_ps, hdstS, hna', hboard', hcast', hep'⟩
     · have hpiece : piece = { color := c, kind := .pawn } :=
-        piece_eq_of_eq_some hsrcP (by
+        piece_eq_of_board hsrcP (by
           rw [hsrcS, hboard, Board.kingsPawnBoard_pawn wk bk ps c hwk_ps hbk_ps])
       have ht : p.toMove = c := by simpa [hpiece] using hcol'.symm
       have hpok : p.pawnMoveOk m = true := hpawn (by simp [hpiece])
       have hba := boardAfter_pawn p m (c := c) hep
-      rcases pawnMoveOk_promotion_of (by rw [hsrcS, hboard, Board.kingsPawnBoard_pawn wk bk ps c hwk_ps hbk_ps]; rfl) hpok with
+      rcases pawnMoveOk_promotion_of
+          (by rw [hsrcS, hboard, Board.kingsPawnBoard_pawn wk bk ps c hwk_ps hbk_ps])
+          hpok with
         ⟨_, k, hpr, hk⟩ | ⟨_, hnone⟩
       · have hplaced : (match m.promotion with
-            | some k => { color := c, kind := k }
-            | none => { color := c, kind := .pawn }) =
-            { color := c, kind := k } := by simp [hpr]
+            | some k' => Piece.mk c k'
+            | none => Piece.mk c PieceKind.pawn) =
+            Piece.mk c k := by simp [hpr]
         have hboardRel :
             p.boardAfter m { color := c, kind := .pawn } =
               (Board.kingsPawnBoard wk bk ps c).relocate ps m.dst
                 { color := c, kind := k } := by
-          rw [hba, hboard, hsrcS, hplaced]
+          rw [hba, hboard, hsrcS]
+          exact congrArg ((Board.kingsPawnBoard wk bk ps c).relocate ps m.dst) hplaced
         cases k with
         | pawn | king => simp [PieceKind.canPromoteTo] at hk
         | queen =>
           have hboard' : (p.play m).board = Board.kingsQueenBoard wk bk m.dst c := by
-            rw [hplay, hpiece, hboardRel, hpr]
-            simp only
+            rw [hplay, hpiece, hboardRel]
             exact Board.relocate_kingsPawnBoard_promote_queen wk bk ps m.dst c
               hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS
           have hep'' : (p.play m).enPassant = none := by
             rw [hplay, hpiece]
-            exact enPassantAfter_pawn_no_enemy m c _
-              (by rw [hba, hboard, hsrcS, hpr]; simp;
+            exact enPassantAfter_pawn_no_enemy m c
+              (p.boardAfter m { color := c, kind := .pawn })
+              (by
+                rw [hboardRel]
                 rw [Board.relocate_kingsPawnBoard_promote_queen wk bk ps m.dst c
                   hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS]
-                exact Board.existsPawnAttacking_kingsQueenBoard wk bk m.dst _ c c.other)
-          exact KingPawnPlay.queen ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep''⟩
+                exact existsPawnAttacking_kingsQueenBoard wk bk m.dst
+                  ⟨m.src.file, pawnJumpOverRank c⟩ c c.other)
+          exact KingPawnPlay.queen
+            ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep''⟩
         | rook =>
           have hboard' : (p.play m).board = Board.kingsRookBoard wk bk m.dst c := by
-            rw [hplay, hpiece, hboardRel, hpr]
-            simp only
+            rw [hplay, hpiece, hboardRel]
             exact Board.relocate_kingsPawnBoard_promote_rook wk bk ps m.dst c
               hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS
           have hep'' : (p.play m).enPassant = none := by
             rw [hplay, hpiece]
-            exact enPassantAfter_pawn_no_enemy m c _
-              (by rw [hba, hboard, hsrcS, hpr]; simp;
+            exact enPassantAfter_pawn_no_enemy m c
+              (p.boardAfter m { color := c, kind := .pawn })
+              (by
+                rw [hboardRel]
                 rw [Board.relocate_kingsPawnBoard_promote_rook wk bk ps m.dst c
                   hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS]
-                exact Board.existsPawnAttacking_kingsRookBoard wk bk m.dst _ c c.other)
-          exact KingPawnPlay.rook ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep''⟩
+                exact existsPawnAttacking_kingsRookBoard wk bk m.dst
+                  ⟨m.src.file, pawnJumpOverRank c⟩ c c.other)
+          exact KingPawnPlay.rook
+            ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep''⟩
         | bishop =>
           have hboard' : (p.play m).board = Board.kingsBishopBoard wk bk m.dst c := by
-            rw [hplay, hpiece, hboardRel, hpr]
-            simp only
+            rw [hplay, hpiece, hboardRel]
             exact Board.relocate_kingsPawnBoard_promote_bishop wk bk ps m.dst c
               hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS
           have hep'' : (p.play m).enPassant = none := by
             rw [hplay, hpiece]
-            exact enPassantAfter_pawn_no_enemy m c _
-              (by rw [hba, hboard, hsrcS, hpr]; simp;
+            exact enPassantAfter_pawn_no_enemy m c
+              (p.boardAfter m { color := c, kind := .pawn })
+              (by
+                rw [hboardRel]
                 rw [Board.relocate_kingsPawnBoard_promote_bishop wk bk ps m.dst c
                   hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS]
-                exact Board.existsPawnAttacking_kingsBishopBoard wk bk m.dst _ c c.other)
-          exact KingPawnPlay.bishop ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep''⟩
+                exact existsPawnAttacking_kingsBishopBoard wk bk m.dst
+                  ⟨m.src.file, pawnJumpOverRank c⟩ c c.other)
+          exact KingPawnPlay.bishop
+            ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep''⟩
         | knight =>
           have hboard' : (p.play m).board = Board.kingsKnightBoard wk bk m.dst c := by
-            rw [hplay, hpiece, hboardRel, hpr]
-            simp only
+            rw [hplay, hpiece, hboardRel]
             exact Board.relocate_kingsPawnBoard_promote_knight wk bk ps m.dst c
               hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS
           have hep'' : (p.play m).enPassant = none := by
             rw [hplay, hpiece]
-            exact enPassantAfter_pawn_no_enemy m c _
-              (by rw [hba, hboard, hsrcS, hpr]; simp;
+            exact enPassantAfter_pawn_no_enemy m c
+              (p.boardAfter m { color := c, kind := .pawn })
+              (by
+                rw [hboardRel]
                 rw [Board.relocate_kingsPawnBoard_promote_knight wk bk ps m.dst c
                   hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS]
-                exact Board.existsPawnAttacking_kingsKnightBoard wk bk m.dst _ c c.other)
-          exact KingPawnPlay.knight ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep''⟩
+                exact existsPawnAttacking_kingsKnightBoard wk bk m.dst
+                  ⟨m.src.file, pawnJumpOverRank c⟩ c c.other)
+          exact KingPawnPlay.knight
+            ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep''⟩
       · have hboard' : (p.play m).board = Board.kingsPawnBoard wk bk m.dst c := by
-          have hplaced : (match m.promotion with
-              | some k => { color := c, kind := k }
-              | none => { color := c, kind := .pawn }) =
-              { color := c, kind := .pawn } := by simp [hnone]
-          rw [hplay, hpiece, hba, hboard, hsrcS, hplaced]
+          rw [hplay, hpiece, hba, hboard, hsrcS, hnone]
           exact Board.relocate_kingsPawnBoard_pawn wk bk ps m.dst c
             hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS
         have hep' : (p.play m).enPassant = none := by
           rw [hplay, hpiece]
-          exact enPassantAfter_pawn_no_enemy m c _
-            (by rw [hba, hboard, hsrcS, hnone]; simp;
+          exact enPassantAfter_pawn_no_enemy m c
+            (p.boardAfter m { color := c, kind := .pawn })
+            (by
+              rw [hba, hboard, hsrcS, hnone]
               rw [Board.relocate_kingsPawnBoard_pawn wk bk ps m.dst c
                 hwk_bk hwk_ps hbk_ps hdstW hdstB hdstS]
-              exact Board.existsPawnAttacking_kingsPawnBoard_other wk bk m.dst _ c)
-        exact KingPawnPlay.stay ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep'⟩
+              exact existsPawnAttacking_kingsPawnBoard_other wk bk m.dst
+                ⟨ps.file, pawnJumpOverRank c⟩ c)
+        exact KingPawnPlay.stay
+          ⟨wk, bk, m.dst, c, hwk_bk, hdstW.symm, hdstB.symm, hna, hboard', hcast', hep'⟩
   · have ht : p.toMove = c.other :=
       destOk_toMove_of_dst_pawn hboard hwk_ps hbk_ps hdstPs hdestOk
     have hsrcNePs : m.src ≠ ps := by
@@ -595,7 +640,7 @@ theorem IsKingAndPawn.of_play {p : Position} {m : Move}
       exact Color.other_ne c hpc.symm
     rcases hsrcEq with hsrcW | hsrcB | hsrcS
     · have hpiece : piece = { color := .white, kind := .king } :=
-        piece_eq_of_eq_some hsrcP (by rw [hsrcW, hboard, Board.kingsPawnBoard_white])
+        piece_eq_of_board hsrcP (by rw [hsrcW, hboard, Board.kingsPawnBoard_white])
       have htW : p.toMove = .white := by simpa [hpiece] using hcol'.symm
       have hc : c = Color.black := by
         have : c.other = Color.white := ht.symm.trans htW
@@ -617,7 +662,8 @@ theorem IsKingAndPawn.of_play {p : Position} {m : Move}
           _ = Board.kingsBoard ps bk := hrel
       have hep' : (p.play m).enPassant = none := by
         rw [hplay, hpiece]
-        exact enPassantAfter_king _ _ _
+        exact enPassantAfter_king m Color.white
+          (p.boardAfter m { color := .white, kind := .king })
       have hna' : ¬ KingAttacks ps bk := by
         have hsafe' : (p.play m).board.kingIsAttacked .white = false := by
           simpa [htW] using hsafe
@@ -625,7 +671,7 @@ theorem IsKingAndPawn.of_play {p : Position} {m : Move}
         exact mt kingAttacks_symmetric.mpr (of_decide_eq_false hsafe')
       exact KingPawnPlay.two ⟨ps, bk, hbk_ps.symm, hna', hboard', hcast', hep'⟩
     · have hpiece : piece = { color := .black, kind := .king } :=
-        piece_eq_of_eq_some hsrcP (by
+        piece_eq_of_board hsrcP (by
           rw [hsrcB, hboard, Board.kingsPawnBoard_black wk bk ps c hwk_bk])
       have htB : p.toMove = .black := by simpa [hpiece] using hcol'.symm
       have hc : c = Color.white := by
@@ -648,7 +694,8 @@ theorem IsKingAndPawn.of_play {p : Position} {m : Move}
           _ = Board.kingsBoard wk ps := hrel
       have hep' : (p.play m).enPassant = none := by
         rw [hplay, hpiece]
-        exact enPassantAfter_king _ _ _
+        exact enPassantAfter_king m Color.black
+          (p.boardAfter m { color := .black, kind := .king })
       have hna' : ¬ KingAttacks wk ps := by
         have hsafe' : (p.play m).board.kingIsAttacked .black = false := by
           simpa [htB] using hsafe
@@ -689,10 +736,16 @@ theorem relocate_no_pawn_of_color (b : Board) (src dst : Square) (placed : Piece
     ∀ s, (b.relocate src dst placed) s ≠ some { color := c, kind := .pawn } := by
   intro s hs
   unfold Board.relocate at hs
-  split_ifs at hs with hdst _hsrc
-  · exact hpl hs
-  · exact h src hs
-  · exact h s hs
+  by_cases hdst : s = dst
+  · rw [if_pos hdst] at hs
+    injection hs with heq
+    exact hpl heq
+  · rw [if_neg hdst] at hs
+    by_cases hsrc : s = src
+    · rw [if_pos hsrc] at hs
+      cases hs
+    · rw [if_neg hsrc] at hs
+      exact h s hs
 
 theorem IsKingAndPawn.play_rot180 {p : Position} {m : Move}
     (h : IsKingAndPawn p) (hm : LegalMove p m) :
@@ -741,80 +794,125 @@ theorem IsKingAndPawn.play_rot180 {p : Position} {m : Move}
     have hbaR := boardAfter_pawn p.rot180 m.rot180 (c := piece.flip.color) rfl
     have hno : ∀ s, p.board s ≠ some { color := piece.color.other, kind := .pawn } := by
       intro s hs
+      have hsrc' : Board.kingsPawnBoard _wk _bk _ps _c m.src =
+          some { color := piece.color, kind := .pawn } := by
+        rw [← hboard, ← hpiece]; exact hsrc
+      have hcol : piece.color = _c := by
+        have hmem : m.src = _wk ∨ m.src = _bk ∨ m.src = _ps :=
+          (Board.kingsPawnBoard_isSome _wk _bk _ps m.src _c).mp (by simp [hsrc'])
+        rcases hmem with hwk | hbk | hps
+        · rw [hwk, Board.kingsPawnBoard_white] at hsrc'
+          cases some_king_ne_pawn' hsrc'
+        · rw [hbk, Board.kingsPawnBoard_black _wk _bk _ps _c _h1] at hsrc'
+          cases some_king_ne_pawn' hsrc'
+        · rw [hps, Board.kingsPawnBoard_pawn _wk _bk _ps _c _h2 _h3] at hsrc'
+          injection hsrc' with hpeq
+          exact (congrArg Piece.color hpeq).symm
       rw [hboard] at hs
-      unfold Board.kingsPawnBoard at hs
-      split_ifs at hs <;> first | cases hs |
-        cases Color.other_ne piece.color (by injection hs with h; injection h)
+      have hmem : s = _wk ∨ s = _bk ∨ s = _ps :=
+        (Board.kingsPawnBoard_isSome _wk _bk _ps s _c).mp (by simp [hs])
+      rcases hmem with hwk | hbk | hps
+      · rw [hwk, Board.kingsPawnBoard_white] at hs
+        cases some_king_ne_pawn' hs
+      · rw [hbk, Board.kingsPawnBoard_black _wk _bk _ps _c _h1] at hs
+        cases some_king_ne_pawn' hs
+      · rw [hps, Board.kingsPawnBoard_pawn _wk _bk _ps _c _h2 _h3] at hs
+        injection hs with hpeq
+        exact (Color.other_ne piece.color) (hcol.trans (congrArg Piece.color hpeq)).symm
     have hplaced :
         (match m.promotion with
-          | some k => { color := piece.color, kind := k }
-          | none => { color := piece.color, kind := .pawn }) ≠
-          { color := piece.color.other, kind := .pawn } := by
+          | some k => Piece.mk piece.color k
+          | none => Piece.mk piece.color PieceKind.pawn) ≠
+          Piece.mk piece.color.other PieceKind.pawn := by
       intro heq
-      have : piece.color = piece.color.other := by
-        cases hpr : m.promotion <;> simp [hpr] at heq
-        · injection heq with h1; injection h1
-        · injection heq with h1; injection h1
-      exact (Color.other_ne piece.color) this.symm
+      cases hpr : m.promotion
+      · simp only [hpr] at heq
+        injection heq with hcol
+        exact (Color.other_ne piece.color) hcol.symm
+      · simp only [hpr] at heq
+        injection heq with hcol
+        exact (Color.other_ne piece.color) hcol.symm
     have hplacedR :
         (match m.rot180.promotion with
-          | some k => { color := piece.flip.color, kind := k }
-          | none => { color := piece.flip.color, kind := .pawn }) ≠
-          { color := piece.flip.color.other, kind := .pawn } := by
+          | some k => Piece.mk piece.flip.color k
+          | none => Piece.mk piece.flip.color PieceKind.pawn) ≠
+          Piece.mk piece.flip.color.other PieceKind.pawn := by
       intro heq
-      have : piece.flip.color = piece.flip.color.other := by
-        cases hpr : m.rot180.promotion <;> simp [hpr] at heq
-        · injection heq with h1; injection h1
-        · injection heq with h1; injection h1
-      exact (Color.other_ne piece.flip.color) this.symm
+      cases hpr : m.rot180.promotion
+      · simp only [hpr] at heq
+        injection heq with hcol
+        exact (Color.other_ne piece.flip.color) hcol.symm
+      · simp only [hpr] at heq
+        injection heq with hcol
+        exact (Color.other_ne piece.flip.color) hcol.symm
     have hnoR : ∀ s, p.rot180.board s ≠
         some { color := piece.flip.color.other, kind := .pawn } := by
       intro s hs
       have : p.board s.rot180 = some { color := piece.color.other, kind := .pawn } := by
-        rw [rot180_board, Board.rot180, Square.rot180_involutive] at hs
+        rw [rot180_board] at hs
+        change (p.board s.rot180).map Piece.flip =
+          some { color := piece.flip.color.other, kind := .pawn } at hs
         cases hb : p.board s.rot180 with
         | none => simp [hb] at hs
         | some q =>
-          simp [hb, Piece.flip] at hs
+          simp only [hb, Option.map_some] at hs
+          injection hs with hs'
+          have hk : q.kind = PieceKind.pawn := by
+            have := congrArg Piece.kind hs'
+            simpa [Piece.flip] using this
+          have hcol : q.color.other = piece.color := by
+            have := congrArg Piece.color hs'
+            simpa [Piece.flip] using this
+          have hqc' : q.color = piece.color.other := by
+            have h := congrArg Color.other hcol
+            simpa [Color.other_other] using h
           rcases q with ⟨qc, qk⟩
-          have hkind : qk = .pawn := by
-            injection hs with hpeq
-            exact (congrArg Piece.kind hpeq).symm
-          have hcol : qc.other = piece.flip.color.other := by
-            injection hs with hpeq
-            exact congrArg Piece.color hpeq
-          subst hkind
-          have : qc = piece.color.other := by
-            have : qc.other = piece.color := by
-              simpa [Piece.flip] using hcol
-            cases qc <;> cases piece.color <;> simp [Color.other] at this ⊢
-          simpa [hb, this]
+          simp only at hqc' hk
+          simp [hqc', hk]
       exact hno s.rot180 this
     have hep := enPassantAfter_pawn_no_enemy m piece.color
       (p.boardAfter m { color := piece.color, kind := .pawn })
-      (Board.existsPawnAttacking_eq_false_of (by
+      (existsPawnAttacking_eq_false_of (by
         intro s hs
         rw [hba] at hs
         exact relocate_no_pawn_of_color p.board m.src m.dst _ piece.color.other
           hno hplaced s hs))
     have hepR := enPassantAfter_pawn_no_enemy m.rot180 piece.flip.color
       (p.rot180.boardAfter m.rot180 { color := piece.flip.color, kind := .pawn })
-      (Board.existsPawnAttacking_eq_false_of (by
+      (existsPawnAttacking_eq_false_of (by
         intro s hs
         rw [hbaR] at hs
         exact relocate_no_pawn_of_color p.rot180.board m.rot180.src m.rot180.dst _
           piece.flip.color.other hnoR hplacedR s hs))
+    have hflipPlaced :
+        (match m.promotion with
+          | some k => Piece.mk piece.color k
+          | none => Piece.mk piece.color PieceKind.pawn).flip =
+        (match m.rot180.promotion with
+          | some k => Piece.mk piece.flip.color k
+          | none => Piece.mk piece.flip.color PieceKind.pawn) := by
+      cases h : m.promotion <;> simp [h, Move.rot180_promotion, Piece.flip]
     rw [hplay, hplayR, rot180_mk, hpiece, hba]
     refine Position.ext ?_ ?_ ?_ ?_
-    · rw [hbaR]
-      simpa [Piece.flip, Move.rot180_src, Move.rot180_dst, rot180_board] using
-        Board.relocate_rot180 p.board m.src m.dst
+    · have hpl := Board.relocate_rot180 p.board m.src m.dst
           (match m.promotion with
-            | some k => { color := piece.color, kind := k }
-            | none => { color := piece.color, kind := .pawn })
+            | some k => Piece.mk piece.color k
+            | none => Piece.mk piece.color PieceKind.pawn)
+      change
+        (p.board.relocate m.src m.dst
+            (match m.promotion with
+              | some k => Piece.mk piece.color k
+              | none => Piece.mk piece.color PieceKind.pawn)).rot180 =
+          p.rot180.board.relocate m.rot180.src m.rot180.dst
+            (match m.rot180.promotion with
+              | some k => Piece.mk piece.flip.color k
+              | none => Piece.mk piece.flip.color PieceKind.pawn)
+      rw [hpl, rot180_board, Move.rot180_src, Move.rot180_dst, hflipPlaced]
     · rw [rot180_toMove, Color.other_other]
     · rw [show p.rot180.castling = ∅ from rfl, castlingAfter_empty]
-    · simp [enPassantAfter, hep, hepR]
+    · have hflipPawn : ({ color := piece.color, kind := PieceKind.pawn } : Piece).flip =
+          { color := piece.flip.color, kind := .pawn } := rfl
+      simpa [hflipPawn, Piece.flip] using hepR.symm
 
 theorem IsKingAndPawn.legalMove_rot180_of {p : Position} {m : Move}
     (h : IsKingAndPawn p) (hm : LegalMove p m) :
@@ -875,7 +973,10 @@ theorem IsKingAndPawn.legalMove_rot180_of {p : Position} {m : Move}
       rw [← pawnMoveOk_rot180 p m he]
       exact hpok
     simp only [hpawnB]
-    exact Bool.and_eq_true_iff.mpr ⟨hpokR, hsafeR⟩
+    have hsafeB :
+        (!(p.rot180.play m.rot180).board.kingIsAttacked p.rot180.toMove) = true := by
+      simpa using hsafeR
+    exact Bool.and_eq_true_iff.mpr ⟨hpokR, hsafeB⟩
 
 theorem IsKingAndPawn.legalMove_rot180 {p : Position} {m : Move}
     (h : IsKingAndPawn p) :
@@ -903,10 +1004,10 @@ theorem IsKingAndPawn.not_IsKingAndQueen {p : Position} (h : IsKingAndPawn p) :
     ¬ IsKingAndQueen p := by
   intro hq
   obtain ⟨wk, bk, ps, c, _h1, h2, h3, _, hboard, _, _⟩ := h
-  obtain ⟨_, _, qs, c', _, h2', h3', _, hboard', _, _⟩ := hq
-  have hp : Board.kingsQueenBoard wk bk qs c' ps =
-      some { color := c, kind := .pawn } := by
-    rw [← hboard', hboard, Board.kingsPawnBoard_pawn wk bk ps c h2 h3]
+  obtain ⟨wk', bk', qs, c', _, _, _, _, hboard', _, _⟩ := hq
+  have hp : p.board ps = some { color := c, kind := .pawn } := by
+    rw [hboard, Board.kingsPawnBoard_pawn wk bk ps c h2 h3]
+  rw [hboard'] at hp
   unfold Board.kingsQueenBoard at hp
   split_ifs at hp <;> simp at hp
 
@@ -914,10 +1015,10 @@ theorem IsKingAndPawn.not_IsKingAndRook {p : Position} (h : IsKingAndPawn p) :
     ¬ IsKingAndRook p := by
   intro hr
   obtain ⟨wk, bk, ps, c, _h1, h2, h3, _, hboard, _, _⟩ := h
-  obtain ⟨_, _, rs, c', _, h2', h3', _, hboard', _, _⟩ := hr
-  have hp : Board.kingsRookBoard wk bk rs c' ps =
-      some { color := c, kind := .pawn } := by
-    rw [← hboard', hboard, Board.kingsPawnBoard_pawn wk bk ps c h2 h3]
+  obtain ⟨wk', bk', rs, c', _, _, _, _, hboard', _, _⟩ := hr
+  have hp : p.board ps = some { color := c, kind := .pawn } := by
+    rw [hboard, Board.kingsPawnBoard_pawn wk bk ps c h2 h3]
+  rw [hboard'] at hp
   unfold Board.kingsRookBoard at hp
   split_ifs at hp <;> simp at hp
 
@@ -925,10 +1026,10 @@ theorem IsKingAndPawn.not_IsKingAndBishop {p : Position} (h : IsKingAndPawn p) :
     ¬ IsKingAndBishop p := by
   intro hb
   obtain ⟨wk, bk, ps, c, _h1, h2, h3, _, hboard, _, _⟩ := h
-  obtain ⟨_, _, bs, c', _, h2', h3', _, hboard', _, _⟩ := hb
-  have hp : Board.kingsBishopBoard wk bk bs c' ps =
-      some { color := c, kind := .pawn } := by
-    rw [← hboard', hboard, Board.kingsPawnBoard_pawn wk bk ps c h2 h3]
+  obtain ⟨wk', bk', bs, c', _, _, _, _, hboard', _, _⟩ := hb
+  have hp : p.board ps = some { color := c, kind := .pawn } := by
+    rw [hboard, Board.kingsPawnBoard_pawn wk bk ps c h2 h3]
+  rw [hboard'] at hp
   unfold Board.kingsBishopBoard at hp
   split_ifs at hp <;> simp at hp
 
@@ -936,10 +1037,10 @@ theorem IsKingAndPawn.not_IsKingAndKnight {p : Position} (h : IsKingAndPawn p) :
     ¬ IsKingAndKnight p := by
   intro hn
   obtain ⟨wk, bk, ps, c, _h1, h2, h3, _, hboard, _, _⟩ := h
-  obtain ⟨_, _, ns, c', _, h2', h3', _, hboard', _, _⟩ := hn
-  have hp : Board.kingsKnightBoard wk bk ns c' ps =
-      some { color := c, kind := .pawn } := by
-    rw [← hboard', hboard, Board.kingsPawnBoard_pawn wk bk ps c h2 h3]
+  obtain ⟨wk', bk', ns, c', _, _, _, _, hboard', _, _⟩ := hn
+  have hp : p.board ps = some { color := c, kind := .pawn } := by
+    rw [hboard, Board.kingsPawnBoard_pawn wk bk ps c h2 h3]
+  rw [hboard'] at hp
   unfold Board.kingsKnightBoard at hp
   split_ifs at hp <;> simp at hp
 
@@ -953,10 +1054,10 @@ theorem IsKingAndBishop.not_IsKingAndQueen {p : Position} (h : IsKingAndBishop p
     ¬ IsKingAndQueen p := by
   intro hq
   obtain ⟨wk, bk, bs, c, _, h2, h3, _, hboard, _, _⟩ := h
-  obtain ⟨_, _, qs, c', _, _, _, _, hboard', _, _⟩ := hq
-  have hp : Board.kingsQueenBoard wk bk qs c' bs =
-      some { color := c, kind := .bishop } := by
-    rw [← hboard', hboard, Board.kingsBishopBoard_bishop wk bk bs c h2 h3]
+  obtain ⟨wk', bk', qs, c', _, _, _, _, hboard', _, _⟩ := hq
+  have hp : p.board bs = some { color := c, kind := .bishop } := by
+    rw [hboard, Board.kingsBishopBoard_bishop wk bk bs c h2 h3]
+  rw [hboard'] at hp
   unfold Board.kingsQueenBoard at hp
   split_ifs at hp <;> simp at hp
 
@@ -964,10 +1065,10 @@ theorem IsKingAndBishop.not_IsKingAndRook {p : Position} (h : IsKingAndBishop p)
     ¬ IsKingAndRook p := by
   intro hr
   obtain ⟨wk, bk, bs, c, _, h2, h3, _, hboard, _, _⟩ := h
-  obtain ⟨_, _, rs, c', _, _, _, _, hboard', _, _⟩ := hr
-  have hp : Board.kingsRookBoard wk bk rs c' bs =
-      some { color := c, kind := .bishop } := by
-    rw [← hboard', hboard, Board.kingsBishopBoard_bishop wk bk bs c h2 h3]
+  obtain ⟨wk', bk', rs, c', _, _, _, _, hboard', _, _⟩ := hr
+  have hp : p.board bs = some { color := c, kind := .bishop } := by
+    rw [hboard, Board.kingsBishopBoard_bishop wk bk bs c h2 h3]
+  rw [hboard'] at hp
   unfold Board.kingsRookBoard at hp
   split_ifs at hp <;> simp at hp
 
@@ -975,10 +1076,10 @@ theorem IsKingAndKnight.not_IsKingAndQueen {p : Position} (h : IsKingAndKnight p
     ¬ IsKingAndQueen p := by
   intro hq
   obtain ⟨wk, bk, ns, c, _, h2, h3, _, hboard, _, _⟩ := h
-  obtain ⟨_, _, qs, c', _, _, _, _, hboard', _, _⟩ := hq
-  have hp : Board.kingsQueenBoard wk bk qs c' ns =
-      some { color := c, kind := .knight } := by
-    rw [← hboard', hboard, Board.kingsKnightBoard_knight wk bk ns c h2 h3]
+  obtain ⟨wk', bk', qs, c', _, _, _, _, hboard', _, _⟩ := hq
+  have hp : p.board ns = some { color := c, kind := .knight } := by
+    rw [hboard, Board.kingsKnightBoard_knight wk bk ns c h2 h3]
+  rw [hboard'] at hp
   unfold Board.kingsQueenBoard at hp
   split_ifs at hp <;> simp at hp
 
@@ -986,10 +1087,10 @@ theorem IsKingAndKnight.not_IsKingAndRook {p : Position} (h : IsKingAndKnight p)
     ¬ IsKingAndRook p := by
   intro hr
   obtain ⟨wk, bk, ns, c, _, h2, h3, _, hboard, _, _⟩ := h
-  obtain ⟨_, _, rs, c', _, _, _, _, hboard', _, _⟩ := hr
-  have hp : Board.kingsRookBoard wk bk rs c' ns =
-      some { color := c, kind := .knight } := by
-    rw [← hboard', hboard, Board.kingsKnightBoard_knight wk bk ns c h2 h3]
+  obtain ⟨wk', bk', rs, c', _, _, _, _, hboard', _, _⟩ := hr
+  have hp : p.board ns = some { color := c, kind := .knight } := by
+    rw [hboard, Board.kingsKnightBoard_knight wk bk ns c h2 h3]
+  rw [hboard'] at hp
   unfold Board.kingsRookBoard at hp
   split_ifs at hp <;> simp at hp
 
@@ -997,10 +1098,10 @@ theorem IsKingAndQueen.not_IsKingAndRook {p : Position} (h : IsKingAndQueen p) :
     ¬ IsKingAndRook p := by
   intro hr
   obtain ⟨wk, bk, qs, c, _, h2, h3, _, hboard, _, _⟩ := h
-  obtain ⟨_, _, rs, c', _, _, _, _, hboard', _, _⟩ := hr
-  have hp : Board.kingsRookBoard wk bk rs c' qs =
-      some { color := c, kind := .queen } := by
-    rw [← hboard', hboard, Board.kingsQueenBoard_queen wk bk qs c h2 h3]
+  obtain ⟨wk', bk', rs, c', _, _, _, _, hboard', _, _⟩ := hr
+  have hp : p.board qs = some { color := c, kind := .queen } := by
+    rw [hboard, Board.kingsQueenBoard_queen wk bk qs c h2 h3]
+  rw [hboard'] at hp
   unfold Board.kingsRookBoard at hp
   split_ifs at hp <;> simp at hp
 
@@ -1158,9 +1259,10 @@ theorem IsKingAndPawn.reachable_rot180 {p : Position} (hp : IsKingAndPawn p)
           fun hq => (hq.not_IsTwoKings htk).elim,
           fun hrk => (hrk.not_IsTwoKings htk).elim⟩
     | two htk =>
-      exact ⟨fun hkp => (hkp.not_IsTwoKings htk).elim,
-        fun hq => (hq.not_IsTwoKings htk).elim,
-        fun hrk => (hrk.not_IsTwoKings htk).elim⟩
+      have htk' := htk.of_play hleg
+      exact ⟨fun hkp => (hkp.not_IsTwoKings htk').elim,
+        fun hq => (hq.not_IsTwoKings htk').elim,
+        fun hrk => (hrk.not_IsTwoKings htk').elim⟩
 
 theorem IsKingAndPawn.checkmateReachable_rot180 {p : Position}
     (h : IsKingAndPawn p) :
@@ -1487,13 +1589,13 @@ theorem kingPawnStart_isKingAndPawn : IsKingAndPawn kingPawnStart := by
   funext s
   simp [kingPawnStart, Board.kingsPawnBoard]
 
-/-- White king on `g6`, black king on `h8`, white pawn on `g7`, White to
-move. One promotion produces the known `g8` queen mate. -/
+/-- White king on `g6`, black king on `h8`, white pawn on `f7`, White to
+move. Promotion to a queen on `f8` is the known eighth-rank mate. -/
 def kingPawnPromo : Position where
   board := fun s =>
     if s = Square.g6 then some { color := .white, kind := .king }
     else if s = Square.h8 then some { color := .black, kind := .king }
-    else if s = Square.g7 then some { color := .white, kind := .pawn }
+    else if s = Square.f7 then some { color := .white, kind := .pawn }
     else none
   toMove := .white
   castling := CastlingRights.empty
@@ -1506,7 +1608,7 @@ theorem kingPawnPromo_valid : Valid kingPawnPromo :=
   (isValid_eq_true_iff _).mp kingPawnPromo_isValid
 
 theorem kingPawnPromo_isKingAndPawn : IsKingAndPawn kingPawnPromo := by
-  refine ⟨Square.g6, Square.h8, Square.g7, Color.white,
+  refine ⟨Square.g6, Square.h8, Square.f7, Color.white,
     by native_decide, by native_decide, by native_decide, by native_decide, ?_,
     rfl, rfl⟩
   funext s
