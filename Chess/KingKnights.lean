@@ -1219,10 +1219,6 @@ def strongPairs (ds : List Square) : Bool :=
 def geoKingCovers (k ek on tgt en : Square) : Bool :=
   coversDests (geoKingDests k ek on tgt) en
 
-/-- A reducing king dest exists ignoring the enemy knight. -/
-def geoKingExists (k ek on tgt : Square) : Bool :=
-  !(geoKingDests k ek on tgt).isEmpty
-
 /-- Two opposite-color reducing king dests that are not a knight leap
 apart: no enemy knight can occupy or attack both, so every enemy knight
 is covered. -/
