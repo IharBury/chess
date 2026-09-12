@@ -1,5 +1,6 @@
 import Chess.EndsGame
 import Chess.KingKnights
+import Chess.KingKnightsMate
 import Chess.KingKnightsW0
 import Chess.KingKnightsW1
 import Chess.KingKnightsW2
@@ -79,6 +80,24 @@ def kingKnightsCheckmateReachable (p : Position) (hv : Valid p) (h : IsKingKnigh
 /-- Checkmate is reachable from the starting example. -/
 theorem kingKnightsStart_CheckmateReachable : CheckmateReachable kingKnightsStart :=
   kingKnightsStart_isKingKnights.checkmateReachable kingKnightsStart_valid
+
+/-- The engineered line is legal. -/
+set_option maxRecDepth 100000 in
+theorem kingKnightsStart_matingLine_legal :
+    pathLegal kingKnightsStart (kingKnightsMatingLine kingKnightsStart) = true := by
+  native_decide
+
+/-- The engineered line ends in checkmate. -/
+set_option maxRecDepth 100000 in
+theorem kingKnightsStart_matingLine_inCheckmate :
+    (playSeq kingKnightsStart (kingKnightsMatingLine kingKnightsStart)).inCheckmate = true := by
+  native_decide
+
+/-- Checkmate is reachable from the starting example, by its concrete line. -/
+theorem kingKnightsStart_CheckmateReachable' : CheckmateReachable kingKnightsStart :=
+  checkmateReachable_of_legalSeq
+    ((pathLegal_iff _ _).mp kingKnightsStart_matingLine_legal)
+    ((inCheckmate_eq_true_iff _).mp kingKnightsStart_matingLine_inCheckmate)
 
 /-- The decision procedure agrees. -/
 theorem kingKnightsStart_decide_CheckmateReachable :
