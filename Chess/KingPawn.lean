@@ -31,10 +31,12 @@ potential, together with `KQState.checkmateReachable_of_okB_of_not_dead`,
 gives `CheckmateReachable` for every non-dead state.
 
 The exhaustive check is the Boolean `KPState.checkAll`, verified by
-`native_decide`. It examines each of the `2 · 64³` three-piece placements
-once; it is not a search for mate. Captures of the pawn are excluded from the
-policy: they leave two kings. Promotion is the engineered exit into the
-known queen-versus-king mating apparatus.
+`native_decide` of `checkFile` in the eight `Chess.KingPawnCover` modules
+(one white-king file each, so they compile in parallel). It examines each
+of the `2 · 64³` three-piece placements once; it is not a search for mate.
+Captures of the pawn are excluded from the policy: they leave two kings.
+Promotion is the engineered exit into the known queen-versus-king mating
+apparatus.
 
 States are stored in a *white-pawn frame*: White owns the pawn. A position
 in which Black owns the pawn is reduced by a 180° rotation and a color swap.
@@ -1049,52 +1051,6 @@ def checkFile (f : Fin 8) : Bool :=
         checkState ⟨.white, ⟨f, r⟩, bk, ps⟩ &&
           checkState ⟨.black, ⟨f, r⟩, bk, ps⟩
 
-set_option maxHeartbeats 0 in
--- `native_decide` of one white-king file of the 2 · 64² KP vs K states.
-theorem checkFile0 : checkFile 0 = true := by native_decide
-set_option maxHeartbeats 0 in
--- `native_decide` of one white-king file of the 2 · 64² KP vs K states.
-theorem checkFile1 : checkFile 1 = true := by native_decide
-set_option maxHeartbeats 0 in
--- `native_decide` of one white-king file of the 2 · 64² KP vs K states.
-theorem checkFile2 : checkFile 2 = true := by native_decide
-set_option maxHeartbeats 0 in
--- `native_decide` of one white-king file of the 2 · 64² KP vs K states.
-theorem checkFile3 : checkFile 3 = true := by native_decide
-set_option maxHeartbeats 0 in
--- `native_decide` of one white-king file of the 2 · 64² KP vs K states.
-theorem checkFile4 : checkFile 4 = true := by native_decide
-set_option maxHeartbeats 0 in
--- `native_decide` of one white-king file of the 2 · 64² KP vs K states.
-theorem checkFile5 : checkFile 5 = true := by native_decide
-set_option maxHeartbeats 0 in
--- `native_decide` of one white-king file of the 2 · 64² KP vs K states.
-theorem checkFile6 : checkFile 6 = true := by native_decide
-set_option maxHeartbeats 0 in
--- `native_decide` of one white-king file of the 2 · 64² KP vs K states.
-theorem checkFile7 : checkFile 7 = true := by native_decide
-
-theorem checkFile_true (f : Fin 8) : checkFile f = true :=
-  match f with
-  | ⟨0, _⟩ => checkFile0
-  | ⟨1, _⟩ => checkFile1
-  | ⟨2, _⟩ => checkFile2
-  | ⟨3, _⟩ => checkFile3
-  | ⟨4, _⟩ => checkFile4
-  | ⟨5, _⟩ => checkFile5
-  | ⟨6, _⟩ => checkFile6
-  | ⟨7, _⟩ => checkFile7
-
-theorem checkAll_true : checkAll = true := by
-  refine List.all_eq_true.mpr ?_
-  intro wk _
-  rcases wk with ⟨f, r⟩
-  exact (List.all_eq_true.mp (checkFile_true f)) r (by simp [List.mem_finRange])
-
-end KPState
-
-namespace KPState
-
 open Position
 
 theorem kingAttacks_ne {s t : Square} (h : KingAttacks s t) : s ≠ t := h.1
@@ -1328,39 +1284,147 @@ theorem play_blackKing {s : KPState} {d : Square} (hok : s.okB = true)
   simp only [hnpawn, hsome]
   exact legal_king_step_bool _ _ _ hgeo rfl hsafe'
 
-set_option maxHeartbeats 0 in
--- `native_decide` of pawnMoveOk for every white-pawn push.
-theorem pawnMoveOk_aux (wk bk ps d : Square) :
-    (if fastPawn wk d bk ps && (⟨.white, wk, bk, ps⟩ : KPState).okB then
-      (⟨.white, wk, bk, ps⟩ : KPState).toPosition.pawnMoveOk
-        ((⟨.white, wk, bk, ps⟩ : KPState).move (.pawn d))
-     else true) = true := by
-  revert wk bk ps d
-  native_decide
-
 theorem pawnMoveOk_of_fastPawn {s : KPState} {d : Square}
     (hok : s.okB = true) (ht : s.toMove = .white)
     (hm : fastPawn s.wk d s.bk s.ps = true) :
     s.toPosition.pawnMoveOk (s.move (.pawn d)) = true := by
   rcases s with ⟨tm, wk, bk, ps⟩
   subst ht
-  have h := pawnMoveOk_aux wk bk ps d
-  have hcond : (fastPawn wk d bk ps &&
-      (⟨.white, wk, bk, ps⟩ : KPState).okB) = true := by
-    exact (Bool.and_eq_true_iff.mpr ⟨hm, hok⟩)
-  simp only [hcond, ↓reduceIte] at h
-  exact h
+  obtain ⟨_, hwp, hbp, _, _, _, _⟩ := (okB_iff ⟨.white, wk, bk, ps⟩).mp hok
+  obtain ⟨hfile, hdwk, hdbk, hstep⟩ := (fastPawn_iff wk d bk ps).mp hm
+  have hdps : d ≠ ps := by
+    intro heq
+    rcases hstep with hδ | ⟨_, hr3, _⟩
+    · have : Square.deltaRank ps d = 0 := by simp [Square.deltaRank, heq]
+      exact (by decide : (0 : ℤ) ≠ 1) (this.symm.trans hδ)
+    · simp [heq] at hr3
+  have hsrc : Board.kingsPawnBoard wk bk ps Color.white ps =
+      some { color := .white, kind := .pawn } :=
+    Board.kingsPawnBoard_pawn _ _ _ _ hwp hbp
+  have hdst : Board.kingsPawnBoard wk bk ps Color.white d = none :=
+    Board.kingsPawnBoard_other _ _ _ _ _ hdwk hdbk hdps
+  have hfileB : (d.file == ps.file) = true := beq_iff_eq.mpr hfile
+  have hsingle :
+      decide (Square.deltaRank ps d = pawnPushDelta Color.white) =
+        decide (Square.deltaRank ps d = 1) := rfl
+  have hdoubleδ :
+      decide (Square.deltaRank ps d = 2 * pawnPushDelta Color.white) =
+        decide (Square.deltaRank ps d = 2) := rfl
+  have hpromo : (d.rank == pawnPromotionRank Color.white) = (d.rank.val == 7) := by
+    simp [pawnPromotionRank]
+  cases hr : (d.rank.val == 7) with
+  | false =>
+    have hmv : (⟨.white, wk, bk, ps⟩ : KPState).move (.pawn d) = Move.std ps d := by
+      simp [move, hr]
+    simp only [hmv, pawnMoveOk, toPosition, hsrc, hdst, hfileB, hsingle, hdoubleδ,
+      hpromo, hr, Option.isNone_none]
+    simp only [enPassant]
+    cases hstep with
+    | inl hδ =>
+      have hδB : decide (Square.deltaRank ps d = 1) = true := decide_eq_true hδ
+      simp [hδB]
+    | inr h =>
+      have hδ : Square.deltaRank ps d = 2 := by
+        simp [Square.deltaRank, h.1, h.2.1]
+      have hstart : (ps.rank == pawnStartRank Color.white) = true := by
+        simp [pawnStartRank, h.1]
+      have hjump : (Board.kingsPawnBoard wk bk ps Color.white
+          ⟨ps.file, pawnJumpOverRank Color.white⟩).isNone = true := by
+        have hjs : (⟨ps.file, pawnJumpOverRank Color.white⟩ : Square) ≠ ps := by
+          intro heq
+          have : (2 : Nat) = 1 := by
+            have := congrArg Rank.val (congrArg Square.rank heq)
+            simp [pawnJumpOverRank] at this
+          exact (by decide : (2 : Nat) ≠ 1) this
+        have hjw : (⟨ps.file, pawnJumpOverRank Color.white⟩ : Square) ≠ wk := by
+          simpa [pawnJumpOverRank] using h.2.2.1
+        have hjb : (⟨ps.file, pawnJumpOverRank Color.white⟩ : Square) ≠ bk := by
+          simpa [pawnJumpOverRank] using h.2.2.2
+        simpa using Option.isNone_iff_eq_none.mpr
+          (Board.kingsPawnBoard_other wk bk ps _ Color.white hjw hjb hjs)
+      have hδB : decide (Square.deltaRank ps d = 2) = true := decide_eq_true hδ
+      simp [hstart, hδB, hjump]
+  | true =>
+    have hmv : (⟨.white, wk, bk, ps⟩ : KPState).move (.pawn d) =
+        Move.promote ps d .queen := by
+      simp [move, hr]
+    have hδ : Square.deltaRank ps d = 1 := by
+      rcases hstep with hδ | ⟨hr1, hr3, _⟩
+      · exact hδ
+      · have : d.rank.val = 7 := beq_iff_eq.mp hr
+        omega
+    have hδB : decide (Square.deltaRank ps d = 1) = true := decide_eq_true hδ
+    simp only [hmv, pawnMoveOk, toPosition, hsrc, hdst, hfileB, hsingle, hdoubleδ,
+      hpromo, hr, PieceKind.canPromoteTo, Option.isNone_none, hδB]
+    simp [enPassant]
 
-set_option maxHeartbeats 0 in
--- `native_decide` recovering fastPawn from pawnMoveOk on an empty destination.
-theorem fastPawn_of_pawnMoveOk_aux (wk bk ps d : Square) (pr : Option PieceKind) :
-    (if (⟨.white, wk, bk, ps⟩ : KPState).okB &&
-        (Board.kingsPawnBoard wk bk ps .white d).isNone &&
-        (⟨.white, wk, bk, ps⟩ : KPState).toPosition.pawnMoveOk ⟨ps, d, pr⟩ then
-      fastPawn wk d bk ps
-     else true) = true := by
-  revert wk bk ps d pr
-  native_decide
+theorem fastPawn_of_pawnMoveOk {s : KPState} {d : Square} {pr : Option PieceKind}
+    (hok : s.okB = true) (ht : s.toMove = .white)
+    (hnone : (Board.kingsPawnBoard s.wk s.bk s.ps .white d).isNone = true)
+    (hpok : s.toPosition.pawnMoveOk ⟨s.ps, d, pr⟩ = true) :
+    fastPawn s.wk d s.bk s.ps = true := by
+  rcases s with ⟨tm, wk, bk, ps⟩
+  subst ht
+  obtain ⟨_, hwp, hbp, _, _, _, _⟩ := (okB_iff ⟨.white, wk, bk, ps⟩).mp hok
+  have hsrc : Board.kingsPawnBoard wk bk ps Color.white ps =
+      some { color := .white, kind := .pawn } :=
+    Board.kingsPawnBoard_pawn _ _ _ _ hwp hbp
+  have ⟨hdwk, hdbk, hdps⟩ := ne_of_kingsPawnBoard_eq_none
+    (Option.isNone_iff_eq_none.mp hnone)
+  unfold pawnMoveOk at hpok
+  simp only [toPosition, hsrc] at hpok
+  set destEmpty := (Board.kingsPawnBoard wk bk ps Color.white d).isNone
+  have hde : destEmpty = true := hnone
+  simp only [hde, Bool.true_and] at hpok
+  have hcap : (decide (PawnAttacks Color.white ps d) && false) = false := by
+    simp
+  have hep : (decide (PawnAttacks Color.white ps d) && true &&
+      ((none : Option Square) == some d)) = false := by
+    simp
+  simp only [hcap, hep, Bool.or_false] at hpok
+  have hpush : ((d.file == ps.file) &&
+      decide (Square.deltaRank ps d = pawnPushDelta Color.white) && true ||
+      (ps.rank == pawnStartRank Color.white) && (d.file == ps.file) &&
+        decide (Square.deltaRank ps d = 2 * pawnPushDelta Color.white) &&
+        true &&
+        (Board.kingsPawnBoard wk bk ps Color.white
+          ⟨ps.file, pawnJumpOverRank Color.white⟩).isNone) = true := by
+    simpa [hde] using (Bool.and_eq_true_iff.mp hpok).1
+  refine (fastPawn_iff wk d bk ps).mpr ⟨?_, hdwk, hdbk, ?_⟩
+  · cases hf : (d.file == ps.file)
+    · simp [hf] at hpush
+    · exact beq_iff_eq.mp hf
+  · have hfile : d.file = ps.file := by
+      cases hf : (d.file == ps.file)
+      · simp [hf] at hpush
+      · exact beq_iff_eq.mp hf
+    cases hs : decide (Square.deltaRank ps d = 1) with
+    | true => exact Or.inl (of_decide_eq_true hs)
+    | false =>
+      have hstart : (ps.rank == pawnStartRank Color.white) = true := by
+        simp [hfile, hs, pawnPushDelta] at hpush
+        exact (Bool.and_eq_true_iff.mp hpush).1.1.1
+      have hδ2 : Square.deltaRank ps d = 2 := by
+        simp [hfile, hs, pawnPushDelta, hstart] at hpush
+        exact of_decide_eq_true (Bool.and_eq_true_iff.mp hpush).1.2
+      have hr1 : ps.rank.val = 1 := by
+        have : ps.rank = pawnStartRank Color.white := beq_iff_eq.mp hstart
+        simp [pawnStartRank] at this
+        exact congrArg Rank.val this
+      have hr3 : d.rank.val = 3 := by
+        have hδ : (d.rank.val : ℤ) - (ps.rank.val : ℤ) = 2 := by
+          simpa [Square.deltaRank] using hδ2
+        omega
+      have hjumpN :
+          (Board.kingsPawnBoard wk bk ps Color.white
+            ⟨ps.file, pawnJumpOverRank Color.white⟩).isNone = true := by
+        simp [hfile, hs, pawnPushDelta, hstart] at hpush
+        exact (Bool.and_eq_true_iff.mp hpush).2
+      have ⟨hjw, hjb, _⟩ := ne_of_kingsPawnBoard_eq_none
+        (Option.isNone_iff_eq_none.mp hjumpN)
+      refine Or.inr ⟨hr1, hr3, ?_, ?_⟩
+      · simpa [pawnJumpOverRank] using hjw
+      · simpa [pawnJumpOverRank] using hjb
 
 theorem play_pawn {s : KPState} {d : Square} (hok : s.okB = true)
     (ht : s.toMove = .white) (hm : fastPawn s.wk d s.bk s.ps = true)
@@ -2130,32 +2194,17 @@ theorem fastLegal_of_legalMove_noncapture {s : KPState} {m : Move}
         simpa [toPosition, ht] using hsrc
       have hsq : m.src = s.ps := Board.kingsPawnBoard_eq_pawn hsrcP
       have hpok : s.toPosition.pawnMoveOk m = true := hpawn rfl
-      have hfl : fastPawn s.wk m.dst s.bk s.ps = true := by
-        have haux := fastPawn_of_pawnMoveOk_aux s.wk s.bk s.ps m.dst m.promotion
-        have hnone : (Board.kingsPawnBoard s.wk s.bk s.ps .white m.dst).isNone = true := by
-          simpa [toPosition] using (Option.isNone_iff_eq_none.mpr he)
-        have hm' : (⟨.white, s.wk, s.bk, s.ps⟩ : KPState).toPosition.pawnMoveOk
-            ⟨s.ps, m.dst, m.promotion⟩ = true := by
-          have hm0 : (⟨.white, s.wk, s.bk, s.ps⟩ : KPState).toPosition.pawnMoveOk m = true := by
-            simpa [toPosition, ht] using hpok
-          have heq : ({ src := s.ps, dst := m.dst, promotion := m.promotion } : Move) = m := by
-            rcases m with ⟨src, dst, pr⟩
-            have hsrcEq : src = s.ps := hsq
-            subst hsrcEq
-            rfl
-          rwa [heq]
-        have hok' : (⟨.white, s.wk, s.bk, s.ps⟩ : KPState).okB = true := by
-          rcases s with ⟨tm, wk, bk, ps⟩
-          subst ht
-          exact hok
-        have hcond :
-            ((⟨.white, s.wk, s.bk, s.ps⟩ : KPState).okB &&
-              (Board.kingsPawnBoard s.wk s.bk s.ps .white m.dst).isNone &&
-              (⟨.white, s.wk, s.bk, s.ps⟩ : KPState).toPosition.pawnMoveOk
-                ⟨s.ps, m.dst, m.promotion⟩) = true :=
-          Bool.and_eq_true_iff.mpr ⟨Bool.and_eq_true_iff.mpr ⟨hok', hnone⟩, hm'⟩
-        simp only [hcond, ↓reduceIte] at haux
-        exact haux
+      have hnone : (Board.kingsPawnBoard s.wk s.bk s.ps .white m.dst).isNone = true := by
+        simpa [toPosition] using (Option.isNone_iff_eq_none.mpr he)
+      have hpok' : s.toPosition.pawnMoveOk ⟨s.ps, m.dst, m.promotion⟩ = true := by
+        have heq : ({ src := s.ps, dst := m.dst, promotion := m.promotion } : Move) = m := by
+          rcases m with ⟨src, dst, pr⟩
+          have hsrcEq : src = s.ps := hsq
+          subst hsrcEq
+          rfl
+        simpa [heq] using hpok
+      have hfl : fastPawn s.wk m.dst s.bk s.ps = true :=
+        fastPawn_of_pawnMoveOk hok ht hnone hpok'
       refine ⟨.pawn m.dst, ?_⟩
       simp [fastLegal, ht, hfl]
     | black =>
@@ -2244,12 +2293,13 @@ theorem not_CheckmateReachable_of_deadB {s : KPState} (hok : s.okB = true)
     exact not_inCheckmate_of_deadB hok hd hq
   · exact h.not_InCheckmate hq
 
-theorem progress_exists {s : KPState} (hok : s.okB = true) :
+theorem progress_exists {s : KPState} (hall : checkAll = true)
+    (hok : s.okB = true) :
     s.mateB = true ∨ s.deadB = true ∨ (∃ s1, Progress s s1) ∨
       ∃ s' d, Promo s s' d := by
   have hcs : s.checkState = true := by
     rcases s with ⟨tm, wk, bk, ps⟩
-    have hwk := (List.all_eq_true.mp checkAll_true) wk (mem_allSquares _)
+    have hwk := (List.all_eq_true.mp hall) wk (mem_allSquares _)
     have hbk := (List.all_eq_true.mp hwk) bk (mem_allSquares _)
     have hps := (List.all_eq_true.mp hbk) ps (mem_allSquares _)
     have hpair := Bool.and_eq_true_iff.mp hps
@@ -2258,14 +2308,16 @@ theorem progress_exists {s : KPState} (hok : s.okB = true) :
     · exact hpair.2
   exact checkState_progress hok hcs
 
-theorem dead_or_checkmate_of_okB_aux :
+theorem dead_or_checkmate_of_okB_aux (hall : checkAll = true)
+    (hallQ : KQState.checkAll = true) :
     ∀ n (s : KPState), s.okB = true → s.mu = n →
       s.deadB = true ∨ CheckmateReachable s.toPosition := by
   intro n
   induction n using Nat.strong_induction_on with
   | _ n ih =>
     intro s hok hn
-    rcases progress_exists hok with hm | hd | ⟨s1, hok1, hr, hp⟩ | ⟨s', d, hs'ok, hr', hfl, hp, hpo⟩
+    rcases progress_exists hall hok with hm | hd | ⟨s1, hok1, hr, hp⟩ |
+      ⟨s', d, hs'ok, hr', hfl, hp, hpo⟩
     · exact Or.inr ⟨s.toPosition, Reachable.refl, inCheckmate_of_mateB hok hm⟩
     · exact Or.inl hd
     · rcases hp with hm1 | ⟨hlt, hnd⟩
@@ -2280,19 +2332,22 @@ theorem dead_or_checkmate_of_okB_aux :
           exact Or.inr ⟨q, hr.trans hrq, hq⟩
     · have ⟨hokQ, hndQ⟩ := promoOk_not_dead hpo
       have hrQ := reachable_promo hr' hs'ok hfl hp
-      have hcr := KQState.checkmateReachable_of_okB_of_not_dead hokQ hndQ
+      have hcr := KQState.checkmateReachable_of_okB_of_not_dead hallQ hokQ hndQ
       obtain ⟨q, hrq, hq⟩ := hcr
       exact Or.inr ⟨q, hrQ.trans hrq, hq⟩
 
-theorem checkmateReachable_of_okB_of_not_dead {s : KPState}
-    (hok : s.okB = true) (hnd : s.deadB = false) :
+theorem checkmateReachable_of_okB_of_not_dead (hall : checkAll = true)
+    (hallQ : KQState.checkAll = true)
+    {s : KPState} (hok : s.okB = true) (hnd : s.deadB = false) :
     CheckmateReachable s.toPosition := by
-  have h := dead_or_checkmate_of_okB_aux s.mu s hok rfl
+  have h := dead_or_checkmate_of_okB_aux hall hallQ s.mu s hok rfl
   cases h with
   | inl hd => exact (Bool.false_ne_true (hnd.symm.trans hd)).elim
   | inr hcr => exact hcr
 
-theorem checkmateReachable_iff_not_dead {s : KPState} (hok : s.okB = true) :
+theorem checkmateReachable_iff_not_dead (hall : checkAll = true)
+    (hallQ : KQState.checkAll = true)
+    {s : KPState} (hok : s.okB = true) :
     CheckmateReachable s.toPosition ↔ s.deadB = false := by
   constructor
   · intro h
@@ -2300,7 +2355,7 @@ theorem checkmateReachable_iff_not_dead {s : KPState} (hok : s.okB = true) :
     | true => exact (not_CheckmateReachable_of_deadB hok hd h).elim
     | false => rfl
   · intro hnd
-    exact checkmateReachable_of_okB_of_not_dead hok hnd
+    exact checkmateReachable_of_okB_of_not_dead hall hallQ hok hnd
 
 end KPState
 

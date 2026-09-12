@@ -1,4 +1,5 @@
-import Chess.KingPawn
+import Chess.KingPawnCover
+import Chess.KingQueenCover
 import Chess.KingKnight
 
 /-!
@@ -1294,7 +1295,8 @@ theorem IsKingAndPawn.checkmateReachable_of_not_dead {p : Position}
     (hok : s.okB = true) (hnd : s.deadB = false)
     (hpos : s.toPosition = p ∨ s.toPosition = p.rot180) :
     CheckmateReachable p := by
-  have hcr := KPState.checkmateReachable_of_okB_of_not_dead hok hnd
+  have hcr := KPState.checkmateReachable_of_okB_of_not_dead
+    KPState.checkAll_true KQState.checkAll_true hok hnd
   rcases hpos with hpos | hpos
   · rwa [hpos] at hcr
   · rw [h.checkmateReachable_rot180]
@@ -1307,7 +1309,8 @@ theorem IsKingAndPawn.checkmateReachable_iff_deadB {p : Position}
     CheckmateReachable p ↔ s.deadB = false := by
   constructor
   · intro hcr
-    have hiff := KPState.checkmateReachable_iff_not_dead hok
+    have hiff := KPState.checkmateReachable_iff_not_dead
+      KPState.checkAll_true KQState.checkAll_true hok
     rcases hpos with hpos | hpos
     · rw [← hpos] at hcr
       exact hiff.mp hcr

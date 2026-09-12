@@ -20,9 +20,10 @@ import Chess.EndsGame
 import Chess.KingBishops
 import Chess.KingKnights
 import Chess.KingKnightsTheorems
-import Chess.KingRook
-import Chess.KingQueen
-import Chess.KingPawn
+import Chess.Rot180
+import Chess.KingRookTheorems
+import Chess.KingQueenTheorems
+import Chess.KingPawnCover
 import Chess.KingPawnTheorems
 import Chess.FinishedGame
 
@@ -57,12 +58,16 @@ without circular imports:
   opposite-color bishops
 * `Chess.KingKnights` — king and knight versus king and knight: checkmate is reachable by an
   engineered mating line (`Chess.KingKnightsTheorems`)
+* `Chess.Rot180` — 180° rotation and color swap, used to reduce a black-piece
+  three-piece ending to the white-piece frame
 * `Chess.KingRook` — king and rook versus king: checkmate is reachable exactly when
-  the position is not dead
+  the position is not dead (`Chess.KingRookTheorems`, covering files in
+  `Chess.KingRookCover`)
 * `Chess.KingQueen` — king and queen versus king: checkmate is reachable exactly when
-  the position is not dead
+  the position is not dead (`Chess.KingQueenTheorems`, covering files in
+  `Chess.KingQueenCover`)
 * `Chess.KingPawn` — king and pawn versus king: checkmate is reachable exactly when
   the position is not dead, by promoting and then following the king-and-queen line
-  (`Chess.KingPawnTheorems`)
+  (`Chess.KingPawnTheorems`, covering files in `Chess.KingPawnCover`)
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 -/
