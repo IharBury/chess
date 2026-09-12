@@ -81,14 +81,14 @@ def kingKnightsCheckmateReachable (p : Position) (hv : Valid p) (h : IsKingKnigh
 theorem kingKnightsStart_CheckmateReachable : CheckmateReachable kingKnightsStart :=
   kingKnightsStart_isKingKnights.checkmateReachable kingKnightsStart_valid
 
+set_option maxRecDepth 100000
+
 /-- The engineered line is legal. -/
-set_option maxRecDepth 100000 in
 theorem kingKnightsStart_matingLine_legal :
     pathLegal kingKnightsStart (kingKnightsMatingLine kingKnightsStart) = true := by
   native_decide
 
 /-- The engineered line ends in checkmate. -/
-set_option maxRecDepth 100000 in
 theorem kingKnightsStart_matingLine_inCheckmate :
     (playSeq kingKnightsStart (kingKnightsMatingLine kingKnightsStart)).inCheckmate = true := by
   native_decide
