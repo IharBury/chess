@@ -1,18 +1,16 @@
 import Chess.EndsGame
 import Chess.KingKnights
+import Chess.KingKnightsCover
 import Chess.KingKnightsMate
-import Chess.KingKnightsW0
-import Chess.KingKnightsW1
-import Chess.KingKnightsW2
-import Chess.KingKnightsW3
 
 /-!
 # King and knight versus king and knight: reachability
 
 Every legal king-and-knight versus king-and-knight state is covered by
 the engineered policy of `Chess.KingKnights`. The exhaustive Boolean
-check is split by white-king file across `Chess.KingKnightsW0`–`W3`.
-Strong induction on the potential then yields `CheckmateReachable`.
+check `checkAll` examines king-and-own-knight triples, skipping the enemy
+knight when a reducing king step is generic. Strong induction on the
+potential then yields `CheckmateReachable`.
 -/
 
 namespace Chess
@@ -21,20 +19,10 @@ namespace KNState
 
 open Position
 
-/-- Every state is illegal or makes progress under the engineered policy. -/
-theorem covered (s : KNState) : (!s.okB || s.checkState) = true := by
-  rcases Nat.lt_or_ge s.wk.file.val 2 with h0 | h0
-  · exact covered_w0 s h0
-  rcases Nat.lt_or_ge s.wk.file.val 4 with h1 | h1
-  · exact covered_w1 s ⟨h0, h1⟩
-  rcases Nat.lt_or_ge s.wk.file.val 6 with h2 | h2
-  · exact covered_w2 s ⟨h1, h2⟩
-  · exact covered_w3 s h2
-
 /-- Every legal state makes progress: the check `covered`. -/
 theorem progress_exists {s : KNState} (hok : s.okB = true) : ∃ s1, Progress s s1 := by
   have h := covered s
-  simp only [hok, Bool.not_true, Bool.false_or] at h
+  simp only [stateCovered, hok, Bool.not_true, Bool.false_or] at h
   exact checkState_sound hok h
 
 theorem checkmateReachable_of_okB_aux :
