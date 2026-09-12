@@ -22,6 +22,8 @@ import Chess.KingKnights
 import Chess.KingKnightsTheorems
 import Chess.KingRook
 import Chess.KingQueen
+import Chess.KingPawn
+import Chess.KingPawnTheorems
 import Chess.FinishedGame
 
 /-!
@@ -59,5 +61,8 @@ without circular imports:
   the position is not dead
 * `Chess.KingQueen` — king and queen versus king: checkmate is reachable exactly when
   the position is not dead
+* `Chess.KingPawn` — king and pawn versus king: checkmate is reachable exactly when
+  the position is not dead, by promoting and then following the king-and-queen line
+  (`Chess.KingPawnTheorems`)
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 -/

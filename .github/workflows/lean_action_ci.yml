@@ -32,7 +32,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # King-and-pawn `checkFile` native_decides add ~9 minutes on a cold CI
+    # runner, on top of the existing king-and-queen / king-and-rook checks.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
 
