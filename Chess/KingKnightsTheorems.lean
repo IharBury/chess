@@ -9,9 +9,8 @@ import Chess.KingKnightsMate
 Every legal king-and-knight versus king-and-knight state is covered by
 the engineered policy of `Chess.KingKnights`. The exhaustive Boolean
 check `checkAll` examines king-and-own-knight triples, skipping the enemy
-knight when two opposite-color reducing king dests cannot both be
-blocked. Strong induction on the potential then yields
-`CheckmateReachable`.
+knight when no single square can block every reducing dest. Strong
+induction on the potential then yields `CheckmateReachable`.
 -/
 
 namespace Chess

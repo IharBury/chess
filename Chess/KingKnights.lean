@@ -35,8 +35,9 @@ potential gives `CheckmateReachable`.
 
 Most legal states are covered by a one-ply strictly reducing king or
 knight move. Two opposite-color reducing king dests that are not a
-knight leap apart cannot be blocked by one enemy knight, so the inner
-64-loop is skipped (as in `KingBishops`). Residuals are checkmate, a
+knight leap apart cannot be blocked by one enemy knight. Otherwise the
+inner loop enumerates only those enemy squares that occupy or attack
+every reducing dest (typically 0–9, not 64). Residuals are checkmate, a
 one-ply potential drop, a two-ply wait-then-drop, or a short scripted
 window. `Chess.KingKnightsCover` decides `checkAll`;
 `Chess.KingKnightsTheorems` glues covering to reachability.
@@ -1138,6 +1139,15 @@ def anyIf (p : Square → Bool) : List Square → Bool
   | [] => false
   | d :: ds => if p d then true else anyIf p ds
 
+/-- Short-circuiting `List.all`. -/
+def allIf (p : Square → Bool) : List Square → Bool
+  | [] => true
+  | d :: ds => if p d then allIf p ds else false
+
+/-- Membership used by residual-enemy intersection. -/
+def memSq (x : Square) : List Square → Bool :=
+  anyIf (fun y => x == y)
+
 /-- Some legal king step or knight hop mates or drops the potential below `x`. -/
 def onePlyBelow (s : KNState) (x : Nat) : Bool :=
   if anyIf (fun d => dropsBelow s x (.king d))
@@ -1242,19 +1252,57 @@ hop is illegal). -/
 def enBlocksKnight (en k d : Square) : Bool :=
   en == d || decide (KnightAttacks en k)
 
+/-- Reducing white knight dests, ignoring the black knight. -/
+def geoKnightDestsW (wn wk bk : Square) : List Square :=
+  (knightDests wn).filter (geoKnightDestW wn wk bk)
+
+/-- Reducing black knight dests, ignoring the white knight. -/
+def geoKnightDestsB (bn bk wk : Square) : List Square :=
+  (knightDests bn).filter (geoKnightDestB bn bk wk)
+
+/-- Some dest in `nds` is free of `en` and the king is not in check from `en`. -/
+def knightCovers (nds : List Square) (k en : Square) : Bool :=
+  anyIf (fun d => en != d && !decide (KnightAttacks en k)) nds
+
 /-- Some geometric reducing white knight hop is legal against this black knight. -/
 def geoKnightCoversW (wn wk bk bn : Square) : Bool :=
-  (knightDests wn).any fun d => geoKnightDestW wn wk bk d && !enBlocksKnight bn wk d
+  knightCovers (geoKnightDestsW wn wk bk) wk bn
 
 /-- Some geometric reducing black knight hop is legal against this white knight. -/
 def geoKnightCoversB (bn bk wk wn : Square) : Bool :=
-  (knightDests bn).any fun d => geoKnightDestB bn bk wk d && !enBlocksKnight wn bk d
+  knightCovers (geoKnightDestsB bn bk wk) bk wn
 
-def geoKnightExistsW (wn wk bk : Square) : Bool :=
-  (knightDests wn).any (geoKnightDestW wn wk bk)
+/-- Occupiers and knight-attackers of `d`. -/
+def knightBlockers (d : Square) : List Square :=
+  d :: knightDests d
 
-def geoKnightExistsB (bn bk wk : Square) : Bool :=
-  (knightDests bn).any (geoKnightDestB bn bk wk)
+/-- Squares that appear in both lists. -/
+def intersectSquares (xs ys : List Square) : List Square :=
+  xs.filter (fun x => memSq x ys)
+
+/-- Enemy squares that occupy or attack every dest in a nonempty dest list. -/
+def kingHardEn : List Square → List Square
+  | [] => []
+  | d :: ds =>
+    ds.foldl (fun acc d' => intersectSquares acc (knightBlockers d'))
+      (knightBlockers d)
+
+/-- Over-approximation of enemy squares that block every reducing knight hop:
+checkers, plus the dests themselves. Empty dests fall back to all 64. -/
+def knightHardEn (k : Square) : List Square → List Square
+  | [] => allSquares
+  | d :: rest => knightDests k ++ (d :: rest)
+
+/-- Enemy squares that are not geo-covered by reducing king dests `kds` or
+knight dests `nds`. -/
+def residualEns (k : Square) (kds nds : List Square) : List Square :=
+  match kds with
+  | [] => knightHardEn k nds
+  | _ => (kingHardEn kds).filter (fun en => !knightCovers nds k en)
+
+/-- King dests `kds` or knight dests `nds` cover this enemy square. -/
+def geoCovered (kds nds : List Square) (k en : Square) : Bool :=
+  coversDests kds en || knightCovers nds k en
 
 /-- Conservative: some black-knight placement could put this white-to-move
 triple on the finale movie. -/
@@ -1285,40 +1333,21 @@ def residualB (wks bks wns bns : Square) : Bool :=
   if wks == wns || bks == wns || bns == wns then true
   else stateCovered ⟨.black, wks, bks, wns, bns⟩
 
-/-- Covering after occupancy and finale skips, with dests computed once. -/
+/-- Covering after occupancy and finale skips, with dests computed once.
+The inner scan is only the enemy squares that can block every reducing dest. -/
 def whiteAfterDests (wks bks wns : Square) (ds : List Square) : Bool :=
   if strongPairs ds then true
-  else if ds.isEmpty then
-    if geoKnightExistsW wns wks bks then
-      allSquares.all fun bns =>
-        if geoKnightCoversW wns wks bks bns then true
-        else residualW wks bks wns bns
-    else
-      allSquares.all (residualW wks bks wns)
-  else
-    allSquares.all fun bns =>
-      if coversDests ds bns then true
-      else if geoKnightCoversW wns wks bks bns then true
-      else residualW wks bks wns bns
+  else allIf (residualW wks bks wns)
+      (residualEns wks ds (geoKnightDestsW wns wks bks))
 
 def blackAfterDests (wks bks bns : Square) (ds : List Square) : Bool :=
   if strongPairs ds then true
-  else if ds.isEmpty then
-    if geoKnightExistsB bns bks wks then
-      allSquares.all fun wns =>
-        if geoKnightCoversB bns bks wks wns then true
-        else residualB wks bks wns bns
-    else
-      allSquares.all (residualB wks bks · bns)
-  else
-    allSquares.all fun wns =>
-      if coversDests ds wns then true
-      else if geoKnightCoversB bns bks wks wns then true
-      else residualB wks bks wns bns
+  else allIf (residualB wks bks · bns)
+      (residualEns bks ds (geoKnightDestsB bns bks wks))
 
 /-- Every legal white-to-move state with kings `wk`, `bk` and white knight
 `wn` is covered: a strong pair of reducing king dests, a reducing knight
-hop independent of the black knight, or each residual square is examined. -/
+hop independent of the black knight, or each blocking square is examined. -/
 def whiteTripleOk (wks bks wns : Square) : Bool :=
   wks == bks || decide (KingAttacks wks bks) || wks == wns || bks == wns ||
     if maybeFinaleW wks bks wns then
@@ -1423,9 +1452,13 @@ theorem mem_kingNeighbors {k d : Square} (h : KingAttacks k d) : d ∈ kingNeigh
   revert k d
   native_decide
 
-theorem mem_knightDests {n d : Square} (h : KnightAttacks n d) : d ∈ knightDests n := by
+theorem mem_knightDests_iff {n d : Square} :
+    d ∈ knightDests n ↔ KnightAttacks n d := by
   revert n d
   native_decide
+
+theorem mem_knightDests {n d : Square} (h : KnightAttacks n d) : d ∈ knightDests n :=
+  mem_knightDests_iff.mpr h
 
 theorem castlingSide_none_of_kingAttacks (c : Color) {s t : Square} (h : KingAttacks s t) :
     (Move.std s t).castlingSide? c = none := by
@@ -2350,6 +2383,72 @@ theorem anyIf_of_mem {p : Square → Bool} {xs : List Square} {d : Square}
       · simp only [eq_false_of_ne_true ha]
         exact ih h
 
+theorem of_allIf {p : Square → Bool} {xs : List Square} {x : Square}
+    (h : allIf p xs = true) (hx : x ∈ xs) : p x = true := by
+  induction hx with
+  | head as =>
+    unfold allIf at h
+    by_cases hp : p x = true
+    · exact hp
+    · simp only [eq_false_of_ne_true hp] at h
+      cases h
+  | tail a hmem ih =>
+    unfold allIf at h
+    by_cases hp : p a = true
+    · simp only [hp] at h
+      exact ih h
+    · simp only [eq_false_of_ne_true hp] at h
+      cases h
+
+theorem anyIf_eq_false {p : Square → Bool} {xs : List Square} :
+    anyIf p xs = false ↔ ∀ x ∈ xs, p x = false := by
+  induction xs with
+  | nil => simp [anyIf]
+  | cons a as ih =>
+    unfold anyIf
+    constructor
+    · intro h x hx
+      by_cases hp : p a = true
+      · simp only [hp] at h
+        cases h
+      · simp only [eq_false_of_ne_true hp] at h
+        rcases List.mem_cons.mp hx with h1 | ht
+        · subst h1
+          exact eq_false_of_ne_true hp
+        · exact ih.mp h x ht
+    · intro h
+      have ha := h a List.mem_cons_self
+      simp only [ha]
+      exact ih.mpr fun x hx => h x (List.mem_cons_of_mem _ hx)
+
+theorem not_eq_false_of_not {b : Bool} (h : (!b) = false) : b = true := by
+  cases b
+  · cases h
+  · rfl
+
+theorem coversDests_eq_false_iff {ds : List Square} {en : Square} :
+    coversDests ds en = false ↔ ∀ d ∈ ds, enBlocksKing en d = true := by
+  simp only [coversDests]
+  rw [anyIf_eq_false]
+  constructor
+  · intro h d hd
+    exact not_eq_false_of_not (h d hd)
+  · intro h d hd
+    cases hb : enBlocksKing en d
+    · have ht := h d hd
+      simp only [hb] at ht
+      cases ht
+    · rfl
+
+theorem memSq_iff {x : Square} {ys : List Square} :
+    memSq x ys = true ↔ x ∈ ys := by
+  constructor
+  · intro h
+    obtain ⟨y, hmem, heq⟩ := mem_of_anyIf h
+    exact (beq_iff_eq.mp heq) ▸ hmem
+  · intro h
+    exact anyIf_of_mem h (beq_self_eq_true _)
+
 theorem onePlyBelow_sound {s : KNState} {x : Nat}
     (hok : s.okB = true) (hx : x = s.mu) (h : onePlyBelow s x = true) :
     ∃ s1, Progress s s1 := by
@@ -2521,6 +2620,92 @@ theorem bool_eq_false_of_ne_true {b : Bool} (h : ¬ b = true) : b = false := by
 theorem ne_true_of_eq_false {b : Bool} (h : b = false) : ¬ b = true :=
   fun ht => Bool.false_ne_true (h.symm.trans ht)
 
+theorem mem_intersectSquares {xs ys : List Square} {x : Square} :
+    x ∈ intersectSquares xs ys ↔ x ∈ xs ∧ x ∈ ys := by
+  simp only [intersectSquares, List.mem_filter, memSq_iff]
+
+theorem mem_knightBlockers_iff {d en : Square} :
+    en ∈ knightBlockers d ↔ enBlocksKing en d = true := by
+  simp only [knightBlockers, enBlocksKing, List.mem_cons, Bool.or_eq_true,
+    beq_iff_eq, decide_eq_true_iff, mem_knightDests_iff, knightAttacks_symmetric]
+
+theorem mem_foldl_intersect {ds acc : List Square} {en : Square} :
+    en ∈ ds.foldl (fun a d => intersectSquares a (knightBlockers d)) acc ↔
+      en ∈ acc ∧ ∀ d ∈ ds, enBlocksKing en d = true := by
+  induction ds generalizing acc with
+  | nil => simp
+  | cons d ds ih =>
+    simp only [List.foldl_cons, mem_intersectSquares, ih, mem_knightBlockers_iff]
+    constructor
+    · intro ⟨⟨hacc, hd⟩, hds⟩
+      refine ⟨hacc, fun x hx => ?_⟩
+      rcases List.mem_cons.mp hx with rfl | hx
+      · exact hd
+      · exact hds x hx
+    · intro ⟨hacc, hall⟩
+      exact ⟨⟨hacc, hall d List.mem_cons_self⟩,
+        fun x hx => hall x (List.mem_cons_of_mem _ hx)⟩
+
+theorem mem_kingHardEn_iff {d : Square} {ds : List Square} {en : Square} :
+    en ∈ kingHardEn (d :: ds) ↔ ∀ x ∈ d :: ds, enBlocksKing en x = true := by
+  simp only [kingHardEn, mem_foldl_intersect, mem_knightBlockers_iff]
+  constructor
+  · intro ⟨hd, hds⟩ x hx
+    rcases List.mem_cons.mp hx with rfl | hx
+    · exact hd
+    · exact hds x hx
+  · intro hall
+    exact ⟨hall d List.mem_cons_self, fun x hx => hall x (List.mem_cons_of_mem _ hx)⟩
+
+theorem mem_kingHardEn_of_not_coversDests {ds : List Square} {en : Square}
+    (hds : ds ≠ []) (h : coversDests ds en = false) : en ∈ kingHardEn ds := by
+  match ds with
+  | [] => exact (hds rfl).elim
+  | d :: rest =>
+    exact (mem_kingHardEn_iff (ds := rest)).mpr (coversDests_eq_false_iff.mp h)
+
+theorem knightCovers_eq_false_of {nds : List Square} {k en : Square}
+    (h : knightCovers nds k en = false) :
+    ∀ d ∈ nds, en = d ∨ KnightAttacks en k := by
+  intro d hd
+  have hn := (anyIf_eq_false.mp h) d hd
+  cases heq : en == d
+  · cases hatt : decide (KnightAttacks en k)
+    · have hne : en ≠ d := beq_eq_false_iff_ne.mp heq
+      simp only [bne_iff_ne.mpr hne, hatt, Bool.not_false, Bool.and_true] at hn
+      exact (Bool.false_ne_true hn.symm).elim
+    · exact Or.inr (decide_eq_true_iff.mp hatt)
+  · exact Or.inl (beq_iff_eq.mp heq)
+
+theorem mem_knightHardEn_of_not_knightCovers {k : Square} {nds : List Square}
+    {en : Square} (h : knightCovers nds k en = false) :
+    en ∈ knightHardEn k nds := by
+  match nds with
+  | [] =>
+    simp only [knightHardEn]
+    exact mem_allSquares en
+  | d :: rest =>
+    simp only [knightHardEn, List.mem_append, List.mem_cons]
+    rcases knightCovers_eq_false_of (nds := d :: rest) h d List.mem_cons_self with
+      heq | hatt
+    · exact Or.inr (Or.inl heq)
+    · exact Or.inl (mem_knightDests (knightAttacks_symmetric.mp hatt))
+
+theorem mem_residualEns_of_not_geoCovered {k : Square} {kds nds : List Square}
+    {en : Square} (h : geoCovered kds nds k en = false) :
+    en ∈ residualEns k kds nds := by
+  simp only [geoCovered, Bool.or_eq_false_iff] at h
+  obtain ⟨hcov, hkn⟩ := h
+  match kds with
+  | [] =>
+    simp only [residualEns]
+    exact mem_knightHardEn_of_not_knightCovers hkn
+  | d :: rest =>
+    simp only [residualEns, List.mem_filter]
+    refine ⟨mem_kingHardEn_of_not_coversDests (List.cons_ne_nil d rest) hcov, ?_⟩
+    simp only [hkn]
+    rfl
+
 theorem fastKingStep_of_geoKingDest {k ek en on tgt d : Square}
     (hg : geoKingDest k ek on tgt d = true) (hb : enBlocksKing en d = false) :
     fastKingStep k d ek en on = true ∧ kingMetric d tgt < kingMetric k tgt ∧
@@ -2605,11 +2790,19 @@ theorem hasReducingKnight_of_geoKnightCoversW {s : KNState} (ht : s.toMove = .wh
     (hok : ¬ KingAttacks s.wk s.bk)
     (h : geoKnightCoversW s.wn s.wk s.bk s.bn = true) :
     s.hasReducingKnight = true := by
-  simp only [geoKnightCoversW] at h
-  obtain ⟨d, hdmem, hd⟩ := List.any_eq_true.mp h
+  simp only [geoKnightCoversW, knightCovers] at h
+  obtain ⟨d, hdmem, hd⟩ := mem_of_anyIf h
+  simp only [geoKnightDestsW, List.mem_filter] at hdmem
+  obtain ⟨hdmem, hg⟩ := hdmem
   simp only [Bool.and_eq_true] at hd
-  obtain ⟨hg, hbN⟩ := hd
-  obtain ⟨hfl, hlt, hcur, hna⟩ := fastKnightMove_of_geoKnightDestW hok hg (bool_not_eq_true hbN)
+  obtain ⟨hne, hnaB⟩ := hd
+  have hne' : s.bn ≠ d := bne_iff_ne.mp hne
+  have hen : ¬ KnightAttacks s.bn s.wk :=
+    decide_eq_false_iff_not.mp (bool_not_eq_true hnaB)
+  have hb : enBlocksKnight s.bn s.wk d = false := by
+    simp only [enBlocksKnight, Bool.or_eq_false_iff, decide_eq_false_iff_not]
+    exact ⟨beq_eq_false_iff_ne.mpr hne', hen⟩
+  obtain ⟨hfl, hlt, hcur, hna⟩ := fastKnightMove_of_geoKnightDestW hok hg hb
   unfold hasReducingKnight
   simp only [ht, knight, king, Color.other, beq_iff_eq, ite_true, fastLegal]
   exact (Bool.and_eq_true_iff.mpr ⟨decide_eq_true hcur, List.any_eq_true.mpr ⟨d, hdmem, by
@@ -2619,11 +2812,19 @@ theorem hasReducingKnight_of_geoKnightCoversB {s : KNState} (ht : s.toMove = .bl
     (hok : ¬ KingAttacks s.wk s.bk)
     (h : geoKnightCoversB s.bn s.bk s.wk s.wn = true) :
     s.hasReducingKnight = true := by
-  simp only [geoKnightCoversB] at h
-  obtain ⟨d, hdmem, hd⟩ := List.any_eq_true.mp h
+  simp only [geoKnightCoversB, knightCovers] at h
+  obtain ⟨d, hdmem, hd⟩ := mem_of_anyIf h
+  simp only [geoKnightDestsB, List.mem_filter] at hdmem
+  obtain ⟨hdmem, hg⟩ := hdmem
   simp only [Bool.and_eq_true] at hd
-  obtain ⟨hg, hbN⟩ := hd
-  obtain ⟨hfl, hlt, hcur, hna⟩ := fastKnightMove_of_geoKnightDestB hok hg (bool_not_eq_true hbN)
+  obtain ⟨hne, hnaB⟩ := hd
+  have hne' : s.wn ≠ d := bne_iff_ne.mp hne
+  have hen : ¬ KnightAttacks s.wn s.bk :=
+    decide_eq_false_iff_not.mp (bool_not_eq_true hnaB)
+  have hb : enBlocksKnight s.wn s.bk d = false := by
+    simp only [enBlocksKnight, Bool.or_eq_false_iff, decide_eq_false_iff_not]
+    exact ⟨beq_eq_false_iff_ne.mpr hne', hen⟩
+  obtain ⟨hfl, hlt, hcur, hna⟩ := fastKnightMove_of_geoKnightDestB hok hg hb
   unfold hasReducingKnight
   simp only [ht, knight, king, Color.other, fastLegal]
   exact (Bool.and_eq_true_iff.mpr ⟨decide_eq_true hcur, List.any_eq_true.mpr ⟨d, hdmem, by
@@ -2852,6 +3053,72 @@ theorem occB_kingAttacks {s : KNState}
   simp only [Bool.or_eq_false_iff, decide_eq_false_iff_not] at h
   exact h.1.1.2
 
+theorem whiteAfterDests_sound {s : KNState} (ht : s.toMove = .white)
+    (hka : ¬ KingAttacks s.wk s.bk) (hmf : maybeFinaleW s.wk s.bk s.wn = false)
+    (h : whiteAfterDests s.wk s.bk s.wn (geoKingDests s.wk s.bk s.wn tgtWK) = true) :
+    stateCovered s = true := by
+  have hf := finaleMu_none_of_not_maybeFinaleW ht hmf
+  unfold whiteAfterDests at h
+  split_ifs at h with hstrong
+  · have hcov := geoKingCovers_of_strong (en := s.bn) hstrong
+    have hcov' : geoKingCovers (s.king s.toMove) (s.king s.toMove.other)
+        (s.knight s.toMove) (if s.toMove == .white then tgtWK else tgtBK)
+        (s.knight s.toMove.other) = true := by
+      simp only [ht, king, knight, Color.other, beq_iff_eq, ite_true]
+      exact hcov
+    exact stateCovered_of_checkState
+      (checkState_of_reducingKingProgress (reducingKingProgress_of_geo hf hcov'))
+  · by_cases hgeo : geoCovered (geoKingDests s.wk s.bk s.wn tgtWK)
+        (geoKnightDestsW s.wn s.wk s.bk) s.wk s.bn = true
+    · simp only [geoCovered, Bool.or_eq_true] at hgeo
+      rcases hgeo with hc | hkn
+      · have hcov' : geoKingCovers (s.king s.toMove) (s.king s.toMove.other)
+            (s.knight s.toMove) (if s.toMove == .white then tgtWK else tgtBK)
+            (s.knight s.toMove.other) = true := by
+          simp only [ht, king, knight, Color.other, beq_iff_eq, ite_true, geoKingCovers]
+          exact hc
+        exact stateCovered_of_checkState
+          (checkState_of_reducingKingProgress (reducingKingProgress_of_geo hf hcov'))
+      · exact stateCovered_of_checkState (checkState_of_reducingKnightProgress
+          (reducingKnightProgress_of_geoW ht hka hf hkn))
+    · exact residualW_sound ht (of_allIf h
+        (mem_residualEns_of_not_geoCovered (bool_eq_false_of_ne_true hgeo)))
+
+theorem blackAfterDests_sound {s : KNState} (ht : s.toMove = .black)
+    (hka : ¬ KingAttacks s.wk s.bk) (hmf : maybeFinaleB s.wk s.bk s.bn = false)
+    (h : blackAfterDests s.wk s.bk s.bn (geoKingDests s.bk s.wk s.bn tgtBK) = true) :
+    stateCovered s = true := by
+  have hf := finaleMu_none_of_not_maybeFinaleB ht hmf
+  unfold blackAfterDests at h
+  split_ifs at h with hstrong
+  · have hcov := geoKingCovers_of_strong (en := s.wn) hstrong
+    have hcov' : geoKingCovers (s.king s.toMove) (s.king s.toMove.other)
+        (s.knight s.toMove) (if s.toMove == .white then tgtWK else tgtBK)
+        (s.knight s.toMove.other) = true := by
+      simp only [ht, king, knight, Color.other, beq_iff_eq]
+      exact hcov
+    exact stateCovered_of_checkState
+      (checkState_of_reducingKingProgress (reducingKingProgress_of_geo hf hcov'))
+  · by_cases hgeo : geoCovered (geoKingDests s.bk s.wk s.bn tgtBK)
+        (geoKnightDestsB s.bn s.bk s.wk) s.bk s.wn = true
+    · simp only [geoCovered, Bool.or_eq_true] at hgeo
+      rcases hgeo with hc | hkn
+      · have hcov' : geoKingCovers (s.king s.toMove) (s.king s.toMove.other)
+            (s.knight s.toMove) (if s.toMove == .white then tgtWK else tgtBK)
+            (s.knight s.toMove.other) = true := by
+          simp only [ht, king, knight, Color.other, beq_iff_eq, geoKingCovers]
+          exact hc
+        exact stateCovered_of_checkState
+          (checkState_of_reducingKingProgress (reducingKingProgress_of_geo hf hcov'))
+      · exact stateCovered_of_checkState (checkState_of_reducingKnightProgress
+          (reducingKnightProgress_of_geoB ht hka hf hkn))
+    · exact residualB_sound ht
+        (of_allIf (p := fun wns => residualB s.wk s.bk wns s.bn) h
+          (mem_residualEns_of_not_geoCovered (k := s.bk)
+            (kds := geoKingDests s.bk s.wk s.bn tgtBK)
+            (nds := geoKnightDestsB s.bn s.bk s.wk) (en := s.wn)
+            (bool_eq_false_of_ne_true hgeo)))
+
 theorem whiteTripleOk_sound {s : KNState} (ht : s.toMove = .white)
     (h : whiteTripleOk s.wk s.bk s.wn = true) : stateCovered s = true := by
   simp only [whiteTripleOk] at h
@@ -2861,49 +3128,7 @@ theorem whiteTripleOk_sound {s : KNState} (ht : s.toMove = .white)
     have hka := occW_kingAttacks hocc
     split_ifs at h with hmf
     · exact residualW_sound ht (of_allSquares_all h s.bn)
-    · unfold whiteAfterDests at h
-      split_ifs at h with hstrong hempty hkn
-      · have hf := finaleMu_none_of_not_maybeFinaleW ht (bool_eq_false_of_ne_true hmf)
-        have hcov := geoKingCovers_of_strong (en := s.bn) hstrong
-        have hcov' : geoKingCovers (s.king s.toMove) (s.king s.toMove.other)
-            (s.knight s.toMove) (if s.toMove == .white then tgtWK else tgtBK)
-            (s.knight s.toMove.other) = true := by
-          simp only [ht, king, knight, Color.other, beq_iff_eq, ite_true]
-          exact hcov
-        exact stateCovered_of_checkState
-          (checkState_of_reducingKingProgress (reducingKingProgress_of_geo hf hcov'))
-      · have hall := of_allSquares_all (p := fun bns =>
-          if geoKnightCoversW s.wn s.wk s.bk bns then true
-          else residualW s.wk s.bk s.wn bns) h s.bn
-        cases hcov : geoKnightCoversW s.wn s.wk s.bk s.bn
-        · simp only [hcov] at hall
-          exact residualW_sound ht hall
-        · have hf := finaleMu_none_of_not_maybeFinaleW ht
-            (bool_eq_false_of_ne_true hmf)
-          exact stateCovered_of_checkState (checkState_of_reducingKnightProgress
-            (reducingKnightProgress_of_geoW ht hka hf hcov))
-      · exact residualW_sound ht (of_allSquares_all h s.bn)
-      · have hall := of_allSquares_all (p := fun bns =>
-          if coversDests (geoKingDests s.wk s.bk s.wn tgtWK) bns then true
-          else if geoKnightCoversW s.wn s.wk s.bk bns then true
-          else residualW s.wk s.bk s.wn bns) h s.bn
-        cases hcov : coversDests (geoKingDests s.wk s.bk s.wn tgtWK) s.bn
-        · cases hknc : geoKnightCoversW s.wn s.wk s.bk s.bn
-          · simp only [hcov, hknc] at hall
-            exact residualW_sound ht hall
-          · have hf := finaleMu_none_of_not_maybeFinaleW ht
-              (bool_eq_false_of_ne_true hmf)
-            exact stateCovered_of_checkState (checkState_of_reducingKnightProgress
-              (reducingKnightProgress_of_geoW ht hka hf hknc))
-        · have hf := finaleMu_none_of_not_maybeFinaleW ht
-            (bool_eq_false_of_ne_true hmf)
-          have hcov' : geoKingCovers (s.king s.toMove) (s.king s.toMove.other)
-              (s.knight s.toMove) (if s.toMove == .white then tgtWK else tgtBK)
-              (s.knight s.toMove.other) = true := by
-            simp only [ht, king, knight, Color.other, beq_iff_eq, ite_true]
-            exact hcov
-          exact stateCovered_of_checkState
-            (checkState_of_reducingKingProgress (reducingKingProgress_of_geo hf hcov'))
+    · exact whiteAfterDests_sound ht hka (bool_eq_false_of_ne_true hmf) h
   · simp only [Bool.or_eq_true, beq_iff_eq, decide_eq_true_iff] at hocc
     rcases hocc with ((hwb | hatt) | hwo) | hbo
     · exact stateCovered_of_not_okB (okB_false_of_wk_eq_bk hwb)
@@ -2921,50 +3146,7 @@ theorem blackTripleOk_sound {s : KNState} (ht : s.toMove = .black)
     split_ifs at h with hmf
     · exact residualB_sound ht
         (of_allSquares_all (p := fun wns => residualB s.wk s.bk wns s.bn) h s.wn)
-    · unfold blackAfterDests at h
-      split_ifs at h with hstrong hempty hkn
-      · have hf := finaleMu_none_of_not_maybeFinaleB ht (bool_eq_false_of_ne_true hmf)
-        have hcov := geoKingCovers_of_strong (en := s.wn) hstrong
-        have hcov' : geoKingCovers (s.king s.toMove) (s.king s.toMove.other)
-            (s.knight s.toMove) (if s.toMove == .white then tgtWK else tgtBK)
-            (s.knight s.toMove.other) = true := by
-          simp only [ht, king, knight, Color.other, beq_iff_eq]
-          exact hcov
-        exact stateCovered_of_checkState
-          (checkState_of_reducingKingProgress (reducingKingProgress_of_geo hf hcov'))
-      · have hall := of_allSquares_all (p := fun wns =>
-          if geoKnightCoversB s.bn s.bk s.wk wns then true
-          else residualB s.wk s.bk wns s.bn) h s.wn
-        cases hcov : geoKnightCoversB s.bn s.bk s.wk s.wn
-        · simp only [hcov] at hall
-          exact residualB_sound ht hall
-        · have hf := finaleMu_none_of_not_maybeFinaleB ht
-            (bool_eq_false_of_ne_true hmf)
-          exact stateCovered_of_checkState (checkState_of_reducingKnightProgress
-            (reducingKnightProgress_of_geoB ht hka hf hcov))
-      · exact residualB_sound ht
-          (of_allSquares_all (p := fun wns => residualB s.wk s.bk wns s.bn) h s.wn)
-      · have hall := of_allSquares_all (p := fun wns =>
-          if coversDests (geoKingDests s.bk s.wk s.bn tgtBK) wns then true
-          else if geoKnightCoversB s.bn s.bk s.wk wns then true
-          else residualB s.wk s.bk wns s.bn) h s.wn
-        cases hcov : coversDests (geoKingDests s.bk s.wk s.bn tgtBK) s.wn
-        · cases hknc : geoKnightCoversB s.bn s.bk s.wk s.wn
-          · simp only [hcov, hknc] at hall
-            exact residualB_sound ht hall
-          · have hf := finaleMu_none_of_not_maybeFinaleB ht
-              (bool_eq_false_of_ne_true hmf)
-            exact stateCovered_of_checkState (checkState_of_reducingKnightProgress
-              (reducingKnightProgress_of_geoB ht hka hf hknc))
-        · have hf := finaleMu_none_of_not_maybeFinaleB ht
-            (bool_eq_false_of_ne_true hmf)
-          have hcov' : geoKingCovers (s.king s.toMove) (s.king s.toMove.other)
-              (s.knight s.toMove) (if s.toMove == .white then tgtWK else tgtBK)
-              (s.knight s.toMove.other) = true := by
-            simp only [ht, king, knight, Color.other, beq_iff_eq]
-            exact hcov
-          exact stateCovered_of_checkState
-            (checkState_of_reducingKingProgress (reducingKingProgress_of_geo hf hcov'))
+    · exact blackAfterDests_sound ht hka (bool_eq_false_of_ne_true hmf) h
   · simp only [Bool.or_eq_true, beq_iff_eq, decide_eq_true_iff] at hocc
     rcases hocc with ((hwb | hatt) | hwo) | hbo
     · exact stateCovered_of_not_okB (okB_false_of_wk_eq_bk hwb)
