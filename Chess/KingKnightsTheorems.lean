@@ -9,8 +9,9 @@ import Chess.KingKnightsMate
 Every legal king-and-knight versus king-and-knight state is covered by
 the engineered policy of `Chess.KingKnights`. The exhaustive Boolean
 check `checkAll` examines king-and-own-knight triples, skipping the enemy
-knight when a reducing king step is generic. Strong induction on the
-potential then yields `CheckmateReachable`.
+knight when two opposite-color reducing king dests cannot both be
+blocked. Strong induction on the potential then yields
+`CheckmateReachable`.
 -/
 
 namespace Chess
@@ -22,7 +23,7 @@ open Position
 /-- Every legal state makes progress: the check `covered`. -/
 theorem progress_exists {s : KNState} (hok : s.okB = true) : ∃ s1, Progress s s1 := by
   have h := covered s
-  simp only [stateCovered, hok, Bool.not_true, Bool.false_or] at h
+  simp only [stateCovered, hok, ite_true] at h
   exact checkState_sound hok h
 
 theorem checkmateReachable_of_okB_aux :
