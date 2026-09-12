@@ -1149,14 +1149,18 @@ def onePlyBelow (s : KNState) (x : Nat) : Bool :=
 def onePlyProgress (s : KNState) : Bool :=
   s.onePlyBelow s.mu
 
-/-- First ply `m`, then a one-ply drop below `x` (or an immediate drop). -/
+/-- First ply `m`, then a one-ply drop below `x` (or an immediate drop).
+The opponent is probed with `hasReducingKing` / `hasReducingKnight` so
+`onePlyBelow` is not run on dests that cannot reduce. -/
 def twoPlyFrom (s : KNState) (x : Nat) (m : KNMove) : Bool :=
   if s.fastLegal m then
     let s1 := s.apply m
     if s1.okB then
       if s1.mateB then true
       else if decide (s1.mu < x) then true
-      else s1.onePlyBelow x
+      else if s1.hasReducingKing then s1.onePlyBelow x
+      else if s1.hasReducingKnight then s1.onePlyBelow x
+      else false
     else false
   else false
 
@@ -2368,7 +2372,15 @@ theorem twoPlyFrom_sound {s : KNState} {m : KNMove} {x : Nat}
         · exact ⟨s.apply m, hok1, reachable_apply hok hfl,
             Or.inr (hx ▸ decide_eq_true_iff.mp hlt)⟩
         · simp only [eq_false_of_ne_true hlt] at h
-          exact onePlyBelow_sound_from hok1 (reachable_apply hok hfl) hx h
+          by_cases hrk : (s.apply m).hasReducingKing = true
+          · simp only [hrk, ite_true] at h
+            exact onePlyBelow_sound_from hok1 (reachable_apply hok hfl) hx h
+          · simp only [eq_false_of_ne_true hrk] at h
+            by_cases hrn : (s.apply m).hasReducingKnight = true
+            · simp only [hrn, ite_true] at h
+              exact onePlyBelow_sound_from hok1 (reachable_apply hok hfl) hx h
+            · simp only [eq_false_of_ne_true hrn] at h
+              exact (Bool.false_ne_true h).elim
     · simp only [eq_false_of_ne_true hok1] at h
       exact (Bool.false_ne_true h).elim
   · simp only [eq_false_of_ne_true hfl] at h
