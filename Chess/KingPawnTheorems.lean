@@ -1,5 +1,6 @@
 import Chess.KingPawnCover
-import Chess.KingQueenCover
+import Chess.KingQueenTheorems
+import Chess.KingRookTheorems
 import Chess.KingKnight
 
 /-!

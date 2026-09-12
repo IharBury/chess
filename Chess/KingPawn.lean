@@ -1297,66 +1297,71 @@ theorem pawnMoveOk_of_fastPawn {s : KPState} {d : Square}
     rcases hstep with hδ | ⟨_, hr3, _⟩
     · have : Square.deltaRank ps d = 0 := by simp [Square.deltaRank, heq]
       exact (by decide : (0 : ℤ) ≠ 1) (this.symm.trans hδ)
-    · simp [heq] at hr3
-  have hsrc : Board.kingsPawnBoard wk bk ps Color.white ps =
-      some { color := .white, kind := .pawn } :=
-    Board.kingsPawnBoard_pawn _ _ _ _ hwp hbp
+    · subst heq
+      omega
+  have hsrcP : (⟨.white, wk, bk, ps⟩ : KPState).toPosition.board ps =
+      some { color := .white, kind := .pawn } := by
+    simpa [toPosition] using Board.kingsPawnBoard_pawn wk bk ps Color.white hwp hbp
   have hdst : Board.kingsPawnBoard wk bk ps Color.white d = none :=
-    Board.kingsPawnBoard_other _ _ _ _ _ hdwk hdbk hdps
-  have hfileB : (d.file == ps.file) = true := beq_iff_eq.mpr hfile
-  have hsingle :
-      decide (Square.deltaRank ps d = pawnPushDelta Color.white) =
-        decide (Square.deltaRank ps d = 1) := rfl
-  have hdoubleδ :
-      decide (Square.deltaRank ps d = 2 * pawnPushDelta Color.white) =
-        decide (Square.deltaRank ps d = 2) := rfl
-  have hpromo : (d.rank == pawnPromotionRank Color.white) = (d.rank.val == 7) := by
-    simp [pawnPromotionRank]
+    Board.kingsPawnBoard_other wk bk ps d Color.white hdwk hdbk hdps
+  have hne7 (hfalse : (d.rank.val == 7) = false) : d.rank ≠ 7 := by
+    intro heq
+    have : (d.rank.val == 7) = true := beq_iff_eq.mpr (congrArg Fin.val heq)
+    exact Bool.false_ne_true (hfalse.symm.trans this)
   cases hr : (d.rank.val == 7) with
   | false =>
     have hmv : (⟨.white, wk, bk, ps⟩ : KPState).move (.pawn d) = Move.std ps d := by
       simp [move, hr]
-    simp only [hmv, pawnMoveOk, toPosition, hsrc, hdst, hfileB, hsingle, hdoubleδ,
-      hpromo, hr, Option.isNone_none]
-    simp only [enPassant]
-    cases hstep with
-    | inl hδ =>
-      have hδB : decide (Square.deltaRank ps d = 1) = true := decide_eq_true hδ
-      simp [hδB]
-    | inr h =>
-      have hδ : Square.deltaRank ps d = 2 := by
-        simp [Square.deltaRank, h.1, h.2.1]
-      have hstart : (ps.rank == pawnStartRank Color.white) = true := by
-        simp [pawnStartRank, h.1]
-      have hjump : (Board.kingsPawnBoard wk bk ps Color.white
-          ⟨ps.file, pawnJumpOverRank Color.white⟩).isNone = true := by
-        have hjs : (⟨ps.file, pawnJumpOverRank Color.white⟩ : Square) ≠ ps := by
+    rw [hmv]
+    unfold pawnMoveOk
+    rw [show (⟨.white, wk, bk, ps⟩ : KPState).toPosition.board (Move.std ps d).src =
+        some { color := .white, kind := .pawn } from hsrcP]
+    simp only [Move.std, pawnPushDelta_white, toPosition, pawnStartRank_white,
+      Fin.isValue, mul_one, pawnJumpOverRank_white, Option.none_beq_some,
+      Bool.and_false, Bool.or_false, pawnPromotionRank_white, beq_iff_eq,
+      BEq.rfl, Bool.if_true_right, Bool.and_eq_true, Bool.or_eq_true,
+      Option.isNone_iff_eq_none, Bool.not_eq_eq_eq_not,
+      Bool.not_true, decide_eq_false_iff_not]
+    constructor
+    · cases hstep with
+      | inl hδ =>
+        exact Or.inl (Or.inl (And.intro (And.intro hfile (decide_eq_true hδ)) hdst))
+      | inr h =>
+        have hδ : Square.deltaRank ps d = 2 := by
+          simp [Square.deltaRank, h.1, h.2.1]
+        have hjs : (⟨ps.file, (2 : Rank)⟩ : Square) ≠ ps := by
           intro heq
-          have : (2 : Nat) = 1 := by
-            have := congrArg Rank.val (congrArg Square.rank heq)
-            simp [pawnJumpOverRank] at this
-          exact (by decide : (2 : Nat) ≠ 1) this
-        have hjw : (⟨ps.file, pawnJumpOverRank Color.white⟩ : Square) ≠ wk := by
-          simpa [pawnJumpOverRank] using h.2.2.1
-        have hjb : (⟨ps.file, pawnJumpOverRank Color.white⟩ : Square) ≠ bk := by
-          simpa [pawnJumpOverRank] using h.2.2.2
-        simpa using Option.isNone_iff_eq_none.mpr
-          (Board.kingsPawnBoard_other wk bk ps _ Color.white hjw hjb hjs)
-      have hδB : decide (Square.deltaRank ps d = 2) = true := decide_eq_true hδ
-      simp [hstart, hδB, hjump]
+          have : (2 : Nat) = ps.rank.val :=
+            congrArg Fin.val (congrArg Square.rank heq)
+          omega
+        have hjump :
+            Board.kingsPawnBoard wk bk ps Color.white ⟨ps.file, 2⟩ = none :=
+          Board.kingsPawnBoard_other wk bk ps _ Color.white h.2.2.1 h.2.2.2 hjs
+        have hr1 : ps.rank = (1 : Rank) := Fin.ext h.1
+        exact Or.inl (Or.inr (And.intro (And.intro (And.intro (And.intro hr1 hfile)
+          (decide_eq_true hδ)) hdst) hjump))
+    · exact hne7 hr
   | true =>
     have hmv : (⟨.white, wk, bk, ps⟩ : KPState).move (.pawn d) =
         Move.promote ps d .queen := by
       simp [move, hr]
     have hδ : Square.deltaRank ps d = 1 := by
-      rcases hstep with hδ | ⟨hr1, hr3, _⟩
+      rcases hstep with hδ | ⟨_, hr3, _⟩
       · exact hδ
       · have : d.rank.val = 7 := beq_iff_eq.mp hr
         omega
-    have hδB : decide (Square.deltaRank ps d = 1) = true := decide_eq_true hδ
-    simp only [hmv, pawnMoveOk, toPosition, hsrc, hdst, hfileB, hsingle, hdoubleδ,
-      hpromo, hr, PieceKind.canPromoteTo, Option.isNone_none, hδB]
-    simp [enPassant]
+    have hr7 : d.rank = 7 := Fin.ext (beq_iff_eq.mp hr)
+    rw [hmv]
+    unfold pawnMoveOk
+    rw [show (⟨.white, wk, bk, ps⟩ : KPState).toPosition.board
+        (Move.promote ps d .queen).src =
+          some { color := .white, kind := .pawn } from hsrcP]
+    simp only [Move.promote, pawnPushDelta_white, toPosition, pawnStartRank_white,
+      Fin.isValue, mul_one, pawnJumpOverRank_white, Option.none_beq_some,
+      Bool.and_false, Bool.or_false, hr7, pawnPromotionRank_white, BEq.rfl,
+      ↓reduceIte, PieceKind.canPromoteTo, Bool.and_true, Bool.or_eq_true,
+      Bool.and_eq_true, beq_iff_eq, Option.isNone_iff_eq_none]
+    exact Or.inl (Or.inl (And.intro (And.intro hfile (decide_eq_true hδ)) hdst))
 
 theorem fastPawn_of_pawnMoveOk {s : KPState} {d : Square} {pr : Option PieceKind}
     (hok : s.okB = true) (ht : s.toMove = .white)
@@ -1366,65 +1371,35 @@ theorem fastPawn_of_pawnMoveOk {s : KPState} {d : Square} {pr : Option PieceKind
   rcases s with ⟨tm, wk, bk, ps⟩
   subst ht
   obtain ⟨_, hwp, hbp, _, _, _, _⟩ := (okB_iff ⟨.white, wk, bk, ps⟩).mp hok
-  have hsrc : Board.kingsPawnBoard wk bk ps Color.white ps =
-      some { color := .white, kind := .pawn } :=
-    Board.kingsPawnBoard_pawn _ _ _ _ hwp hbp
-  have ⟨hdwk, hdbk, hdps⟩ := ne_of_kingsPawnBoard_eq_none
+  have hsrcP : (⟨.white, wk, bk, ps⟩ : KPState).toPosition.board ps =
+      some { color := .white, kind := .pawn } := by
+    simpa [toPosition] using Board.kingsPawnBoard_pawn wk bk ps Color.white hwp hbp
+  have ⟨hdwk, hdbk, _hdps⟩ := ne_of_kingsPawnBoard_eq_none
     (Option.isNone_iff_eq_none.mp hnone)
   unfold pawnMoveOk at hpok
-  simp only [toPosition, hsrc] at hpok
-  set destEmpty := (Board.kingsPawnBoard wk bk ps Color.white d).isNone
-  have hde : destEmpty = true := hnone
-  simp only [hde, Bool.true_and] at hpok
-  have hcap : (decide (PawnAttacks Color.white ps d) && false) = false := by
-    simp
-  have hep : (decide (PawnAttacks Color.white ps d) && true &&
-      ((none : Option Square) == some d)) = false := by
-    simp
-  simp only [hcap, hep, Bool.or_false] at hpok
-  have hpush : ((d.file == ps.file) &&
-      decide (Square.deltaRank ps d = pawnPushDelta Color.white) && true ||
-      (ps.rank == pawnStartRank Color.white) && (d.file == ps.file) &&
-        decide (Square.deltaRank ps d = 2 * pawnPushDelta Color.white) &&
-        true &&
-        (Board.kingsPawnBoard wk bk ps Color.white
-          ⟨ps.file, pawnJumpOverRank Color.white⟩).isNone) = true := by
-    simpa [hde] using (Bool.and_eq_true_iff.mp hpok).1
+  rw [show (⟨.white, wk, bk, ps⟩ : KPState).toPosition.board
+      ({ src := ps, dst := d, promotion := pr } : Move).src =
+        some { color := .white, kind := .pawn } from hsrcP] at hpok
+  have hdst : Board.kingsPawnBoard wk bk ps Color.white d = none :=
+    Option.isNone_iff_eq_none.mp hnone
+  have hpok' := by
+    simpa [toPosition, hdst, pawnPushDelta_white, pawnStartRank_white,
+      pawnJumpOverRank_white] using hpok
+  obtain ⟨hmotion, _⟩ := hpok'
   refine (fastPawn_iff wk d bk ps).mpr ⟨?_, hdwk, hdbk, ?_⟩
-  · cases hf : (d.file == ps.file)
-    · simp [hf] at hpush
-    · exact beq_iff_eq.mp hf
-  · have hfile : d.file = ps.file := by
-      cases hf : (d.file == ps.file)
-      · simp [hf] at hpush
-      · exact beq_iff_eq.mp hf
-    cases hs : decide (Square.deltaRank ps d = 1) with
-    | true => exact Or.inl (of_decide_eq_true hs)
-    | false =>
-      have hstart : (ps.rank == pawnStartRank Color.white) = true := by
-        simp [hfile, hs, pawnPushDelta] at hpush
-        exact (Bool.and_eq_true_iff.mp hpush).1.1.1
-      have hδ2 : Square.deltaRank ps d = 2 := by
-        simp [hfile, hs, pawnPushDelta, hstart] at hpush
-        exact of_decide_eq_true (Bool.and_eq_true_iff.mp hpush).1.2
-      have hr1 : ps.rank.val = 1 := by
-        have : ps.rank = pawnStartRank Color.white := beq_iff_eq.mp hstart
-        simp [pawnStartRank] at this
-        exact congrArg Rank.val this
+  · rcases hmotion with h | h
+    · exact h.1
+    · exact h.1.1.2
+  · rcases hmotion with h | h
+    · exact Or.inl (of_decide_eq_true h.2)
+    · obtain ⟨⟨⟨hr1, _hfile⟩, hδ2⟩, hjump⟩ := h
+      have hstart : ps.rank.val = 1 := congrArg Fin.val hr1
       have hr3 : d.rank.val = 3 := by
-        have hδ : (d.rank.val : ℤ) - (ps.rank.val : ℤ) = 2 := by
+        have : (d.rank.val : ℤ) - (ps.rank.val : ℤ) = 2 := by
           simpa [Square.deltaRank] using hδ2
         omega
-      have hjumpN :
-          (Board.kingsPawnBoard wk bk ps Color.white
-            ⟨ps.file, pawnJumpOverRank Color.white⟩).isNone = true := by
-        simp [hfile, hs, pawnPushDelta, hstart] at hpush
-        exact (Bool.and_eq_true_iff.mp hpush).2
-      have ⟨hjw, hjb, _⟩ := ne_of_kingsPawnBoard_eq_none
-        (Option.isNone_iff_eq_none.mp hjumpN)
-      refine Or.inr ⟨hr1, hr3, ?_, ?_⟩
-      · simpa [pawnJumpOverRank] using hjw
-      · simpa [pawnJumpOverRank] using hjb
+      have ⟨hjw, hjb, _⟩ := ne_of_kingsPawnBoard_eq_none hjump
+      exact Or.inr ⟨hstart, hr3, hjw, hjb⟩
 
 theorem play_pawn {s : KPState} {d : Square} (hok : s.okB = true)
     (ht : s.toMove = .white) (hm : fastPawn s.wk d s.bk s.ps = true)

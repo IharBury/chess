@@ -8,7 +8,8 @@ other files, and not inside the definition file.
 
 namespace Chess.KRState
 
-set_option maxHeartbeats 0
+set_option maxHeartbeats 0 in
+-- `native_decide` of one white-king file; heartbeat bound would abort it.
 theorem checkFile4 : checkFile 4 = true := by native_decide
 
 end Chess.KRState
