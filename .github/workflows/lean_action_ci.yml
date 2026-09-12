@@ -32,6 +32,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Exhaustive `checkFile` native_decides run in parallel cover modules, so a
+    # cold build should finish around five minutes. Keep a little headroom for
+    # mathlib cache download.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
