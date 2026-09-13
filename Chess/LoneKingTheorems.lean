@@ -1,4 +1,4 @@
-import Chess.LoneKing
+import Chess.LoneKingMaterial
 import Chess.KingBishops
 
 /-!
@@ -485,19 +485,261 @@ theorem loneKingDead_sound {p : Position} (h : loneKingDead p = true) : DeadPosi
   rw [normalize_eq] at h
   exact LoneKing.deadWithin_sound _ _ h
 
+/-! ### The exhaustive fallback
+
+`LoneKing.explore` answers `true` only at a position from which checkmate
+is reachable (`explore_true`), and `false` only after closing off every
+position reachable from the start: each is recognized as dead or is not
+checkmate with all its legal moves leading to positions seen
+(`explore_false`). Positions recognized as dead are dead indeed, the lone
+king keeping its shape along every line (`deadNode_sound`). -/
+
+namespace LoneKing
+
+open Chess.LoneKing
+
+theorem mem_successors {q r : Position} :
+    r ∈ successors q ↔ ∃ m, LegalMove q m ∧ r = q.play m := by
+  unfold successors
+  simp only [List.mem_filterMap]
+  constructor
+  · rintro ⟨m, _, hm⟩
+    split at hm
+    · rename_i hleg
+      rw [Option.some.injEq] at hm
+      exact ⟨m, hleg, by rw [← hm, normalize_eq]⟩
+    · cases hm
+  · rintro ⟨m, hleg, rfl⟩
+    exact ⟨m, mem_candidateMoves_of_legalMove hleg, by
+      rw [if_pos (show q.isLegalMove m = true from hleg), normalize_eq]⟩
+
+/-- A checked engineered line proves checkmate reachable. -/
+theorem probeLive_sound {q : Position} (h : probeLive q = true) : CheckmateReachable q := by
+  unfold probeLive at h
+  simp only [pathLegalN_eq, playSeqN_eq, Bool.and_eq_true] at h
+  exact checkmateReachable_of_legalSeq ((pathLegal_iff _ _).mp h.1)
+    ((inCheckmate_eq_true_iff _).mp h.2)
+
+theorem checkmateReachable_of_play {p : Position} {m : Move} (hleg : LegalMove p m)
+    (h : CheckmateReachable (p.play m)) : CheckmateReachable p :=
+  let ⟨q, hr, hm⟩ := h
+  ⟨q, (Reachable.step m Reachable.refl hleg).trans hr, hm⟩
+
+/-- In check without a successor is checkmate. -/
+theorem inCheckmate_of_mateTest {q : Position}
+    (h : (q.inCheck && (successors q).isEmpty) = true) : InCheckmate q := by
+  simp only [Bool.and_eq_true, List.isEmpty_iff] at h
+  rw [InCheckmate_iff_forall_not_LegalMove]
+  refine ⟨h.1, fun m hm => ?_⟩
+  have := mem_successors.mpr ⟨m, hm, rfl⟩
+  rw [h.2] at this
+  cases this
+
+/-- Not in check, or with a successor, is not checkmate. -/
+theorem not_inCheckmate_of_mateTest {q : Position}
+    (h : (q.inCheck && (successors q).isEmpty) = false) : ¬ InCheckmate q := by
+  intro hm
+  have hchk := inCheckmate_implies_inCheck ((inCheckmate_eq_true_iff q).mpr hm)
+  have hnone := ((InCheckmate_iff_forall_not_LegalMove q).mp hm).2
+  have hnil : successors q = [] := by
+    cases hs : successors q with
+    | nil => rfl
+    | cons r rest =>
+      obtain ⟨m, hleg, _⟩ := mem_successors.mp (hs ▸ List.mem_cons_self)
+      exact (hnone m hleg).elim
+  rw [hchk, hnil] at h
+  cases h
+
+theorem mem_fresh {V succ : List Position} {r : Position} :
+    r ∈ fresh V succ ↔ r ∈ succ ∧ r ∉ V := by
+  simp [fresh]
+
+/-- `true` is answered only when checkmate is reachable from a position of
+the work list. -/
+theorem explore_true (c : Color) :
+    ∀ V W, explore c V W = true → ∃ q ∈ W, CheckmateReachable q := by
+  intro V W
+  induction V, W using explore.induct c with
+  | case1 V => intro h; rw [explore] at h; cases h
+  | case2 V q W hlive => exact fun _ => ⟨q, List.mem_cons_self, probeLive_sound hlive⟩
+  | case3 V q W hlive hdead ih =>
+    intro h
+    rw [explore, if_neg hlive, if_pos hdead] at h
+    obtain ⟨r, hr, hcr⟩ := ih h
+    exact ⟨r, List.mem_cons_of_mem q hr, hcr⟩
+  | case4 V q W hlive hdead _ hmate =>
+    exact fun _ => ⟨q, List.mem_cons_self, checkmateReachable_of_inCheckmate
+      (inCheckmate_of_mateTest hmate)⟩
+  | case5 V q W hlive hdead _ hmate ih =>
+    intro h
+    rw [explore, if_neg hlive, if_neg hdead, if_neg hmate] at h
+    obtain ⟨r, hr, hcr⟩ := ih h
+    rcases List.mem_append.mp hr with hr | hr
+    · exact ⟨r, List.mem_cons_of_mem q hr, hcr⟩
+    · obtain ⟨m, hleg, rfl⟩ := mem_successors.mp (mem_fresh.mp hr).1
+      exact ⟨q, List.mem_cons_self, checkmateReachable_of_play hleg hcr⟩
+
+/-- A position of the seen list is closed off: recognized as dead, or not
+checkmate with every legal move leading into the seen list. -/
+def Closed (c : Color) (V : List Position) (q : Position) : Prop :=
+  deadNode c q = true ∨ (¬ InCheckmate q ∧ ∀ m, LegalMove q m → q.play m ∈ V)
+
+theorem Closed.mono {c : Color} {V V' : List Position} {q : Position} (h : Closed c V q)
+    (hVV : ∀ r ∈ V, r ∈ V') : Closed c V' q := by
+  rcases h with h | ⟨hnm, hsucc⟩
+  · exact Or.inl h
+  · exact Or.inr ⟨hnm, fun m hm => hVV _ (hsucc m hm)⟩
+
+/-- `false` is answered only once every seen position is closed off. The
+seen list contains the work list and consists of positions reachable from
+`p`; every seen position not in the work list is already closed off. -/
+theorem explore_false (c : Color) (p : Position) :
+    ∀ V W, explore c V W = false → (∀ q ∈ W, q ∈ V) → (∀ q ∈ V, Reachable p q) →
+      (∀ q ∈ V, q ∉ W → Closed c V q) →
+      ∃ V', (∀ q ∈ V, q ∈ V') ∧ (∀ q ∈ V', Reachable p q) ∧ ∀ q ∈ V', Closed c V' q := by
+  intro V W
+  induction V, W using explore.induct c with
+  | case1 V =>
+    intro _ _ hreach hclosed
+    exact ⟨V, fun q hq => hq, hreach, fun q hq => hclosed q hq (List.not_mem_nil)⟩
+  | case2 V q W hlive =>
+    intro h
+    rw [explore, if_pos hlive] at h
+    cases h
+  | case3 V q W hlive hdead ih =>
+    intro h hWV hreach hclosed
+    rw [explore, if_neg hlive, if_pos hdead] at h
+    refine ih h (fun r hr => hWV r (List.mem_cons_of_mem q hr)) hreach fun r hr hrW => ?_
+    by_cases hrq : r = q
+    · exact Or.inl (hrq ▸ hdead)
+    · exact hclosed r hr fun hmem => (List.mem_cons.mp hmem).elim hrq hrW
+  | case4 V q W hlive hdead _ hmate =>
+    intro h
+    rw [explore, if_neg hlive, if_neg hdead, if_pos hmate] at h
+    cases h
+  | case5 V q W hlive hdead _ hmate ih =>
+    intro h hWV hreach hclosed
+    rw [explore, if_neg hlive, if_neg hdead, if_neg hmate] at h
+    have hqV : q ∈ V := hWV q List.mem_cons_self
+    have hWV' : ∀ r ∈ W ++ fresh V (successors q), r ∈ V ++ fresh V (successors q) := by
+      intro r hr
+      rcases List.mem_append.mp hr with hr | hr
+      · exact List.mem_append_left _ (hWV r (List.mem_cons_of_mem q hr))
+      · exact List.mem_append_right _ hr
+    have hreach' : ∀ r ∈ V ++ fresh V (successors q), Reachable p r := by
+      intro r hr
+      rcases List.mem_append.mp hr with hr | hr
+      · exact hreach r hr
+      · obtain ⟨m, hleg, rfl⟩ := mem_successors.mp (mem_fresh.mp hr).1
+        exact Reachable.step m (hreach q hqV) hleg
+    have hclosed' : ∀ r ∈ V ++ fresh V (successors q), r ∉ W ++ fresh V (successors q) →
+        Closed c (V ++ fresh V (successors q)) r := by
+      intro r hr hrW
+      have hrV : r ∈ V := by
+        rcases List.mem_append.mp hr with hr | hr
+        · exact hr
+        · exact (hrW (List.mem_append_right _ hr)).elim
+      have hrW' : r ∉ W := fun h' => hrW (List.mem_append_left _ h')
+      by_cases hrq : r = q
+      · subst hrq
+        refine Or.inr ⟨not_inCheckmate_of_mateTest (Bool.eq_false_iff.mpr hmate), fun m hm => ?_⟩
+        have hsucc : r.play m ∈ successors r := mem_successors.mpr ⟨m, hm, rfl⟩
+        by_cases hmem : r.play m ∈ V
+        · exact List.mem_append_left _ hmem
+        · exact List.mem_append_right _ (mem_fresh.mpr ⟨hsucc, hmem⟩)
+      · exact (hclosed r hrV fun hmem => (List.mem_cons.mp hmem).elim hrq hrW').mono
+          fun x hx => List.mem_append_left _ hx
+    obtain ⟨V', hVV', hreach'', hclosed''⟩ := ih h hWV' hreach' hclosed'
+    exact ⟨V', fun r hr => hVV' r (List.mem_append_left _ hr), hreach'', hclosed''⟩
+
+/-- A start position of a closed-off list all of whose recognized-dead
+members are dead is dead. -/
+theorem deadPosition_of_closed {c : Color} {p : Position} {V' : List Position} (hp : p ∈ V')
+    (hclosed : ∀ q ∈ V', Closed c V' q)
+    (hdead : ∀ q ∈ V', deadNode c q = true → DeadPosition q) : DeadPosition p := by
+  have key : ∀ q, Reachable p q → q ∈ V' ∨ ∃ d ∈ V', deadNode c d = true ∧ Reachable d q := by
+    intro q hq
+    induction hq with
+    | refl => exact Or.inl hp
+    | step m _ hleg ih =>
+      rcases ih with hmem | ⟨d, hd, hdn, hrd⟩
+      · rcases hclosed _ hmem with hdn | ⟨_, hsucc⟩
+        · exact Or.inr ⟨_, hmem, hdn, Reachable.step m Reachable.refl hleg⟩
+        · exact Or.inl (hsucc m hleg)
+      · exact Or.inr ⟨d, hd, hdn, Reachable.step m hrd hleg⟩
+  intro q hq hm
+  rcases key q hq with hmem | ⟨d, hd, hdn, hrd⟩
+  · rcases hclosed _ hmem with hdn | ⟨hnm, _⟩
+    · exact hdead _ hmem hdn _ Reachable.refl hm
+    · exact hnm hm
+  · exact hdead d hd hdn q hrd hm
+
+/-- A position recognized as dead is dead, provided the lone king has kept
+its shape. -/
+theorem deadNode_sound {c : Color} {q : Position} (hs : LoneShape c q)
+    (h : deadNode c q = true) : DeadPosition q := by
+  unfold deadNode at h
+  simp only [Bool.or_eq_true, decide_eq_true_eq] at h
+  rcases h with (hleaf | hw) | hb
+  · exact deadLeaf_sound hleaf
+  · exact hs.deadPosition_of_onlyBishopsOn hw
+  · exact hs.deadPosition_of_onlyBishopsOn hb
+
+end LoneKing
+
 /-! ### Deciding `CheckmateReachable` -/
 
-/-- Decides whether checkmate is reachable from a valid position that the
-engineered procedures settle: `true` comes with a legal mating line or a
-proven three-piece state, `false` with a proof of deadness. -/
-def loneKingDecidable (p : Position) (hv : Valid p) (h : loneKingDecided p = true) :
+/-- Under `HasLoneKing`, `loneColor` names a player with only a king. -/
+theorem loneFor_loneColor {p : Position} (h : HasLoneKing p) : LoneFor (loneColor p) p := by
+  unfold loneColor
+  split_ifs with hb
+  · exact hb
+  · obtain ⟨c, hc⟩ := h
+    cases c
+    · exact hc
+    · exact (hb hc).elim
+
+/-- The verdict is correct for every valid position with a bare king. -/
+theorem loneKingVerdict_iff {p : Position} (hv : Valid p) (h : HasLoneKing p) :
+    loneKingVerdict p = true ↔ CheckmateReachable p := by
+  unfold loneKingVerdict
+  split_ifs with hr hd
+  · exact ⟨fun _ => loneKingCheckmateReachable_sound hv hr, fun _ => rfl⟩
+  · exact ⟨fun h => by simp at h, fun hc =>
+      ((DeadPosition_iff_not_CheckmateReachable p).mp (loneKingDead_sound hd) hc).elim⟩
+  · simp only [normalize_eq]
+    constructor
+    · intro he
+      obtain ⟨q, hq, hcr⟩ := LoneKing.explore_true _ _ _ he
+      rw [List.mem_singleton] at hq
+      exact hq ▸ hcr
+    · intro hcr
+      by_contra he
+      rw [Bool.not_eq_true] at he
+      obtain ⟨V', hV, hreach, hclosed⟩ := LoneKing.explore_false _ p _ _ he (fun q hq => hq)
+        (fun q hq => by rw [List.mem_singleton] at hq; exact hq ▸ Reachable.refl)
+        (fun q hq hnq => (hnq hq).elim)
+      have hs : LoneShape (loneColor p) p := LoneShape.of_valid hv (loneFor_loneColor h)
+      exact (DeadPosition_iff_not_CheckmateReachable p).mp
+        (LoneKing.deadPosition_of_closed (hV p (List.mem_singleton_self p)) hclosed
+          fun q hq hdn => LoneKing.deadNode_sound (hs.of_reachable (hreach q hq)) hdn) hcr
+
+/-- Decides whether checkmate is reachable from a valid position in which
+one player has only a king, by evaluating `loneKingVerdict`. -/
+def loneKingDecidable (p : Position) (hv : Valid p) (h : HasLoneKing p) :
     Decidable (CheckmateReachable p) :=
-  if hr : loneKingCheckmateReachable p = true then
-    isTrue (loneKingCheckmateReachable_sound hv hr)
-  else
-    isFalse ((DeadPosition_iff_not_CheckmateReachable p).mp (loneKingDead_sound (by
-      unfold loneKingDecided at h
-      simpa [hr] using h)))
+  decidable_of_iff (loneKingVerdict p = true) (loneKingVerdict_iff hv h)
+
+/-- On a settled position the verdict is the engineered answer, without
+exploration. -/
+theorem loneKingVerdict_of_decided {p : Position} (h : loneKingDecided p = true) :
+    loneKingVerdict p = loneKingCheckmateReachable p := by
+  unfold loneKingVerdict
+  unfold loneKingDecided at h
+  split_ifs with hr hd
+  · exact hr.symm
+  · exact (Bool.eq_false_iff.mpr hr).symm
+  · simp [hr, hd] at h
 
 /-- Every valid position with at most three pieces and no castling rights
 is settled. -/
@@ -749,11 +991,14 @@ through stalemate. -/
 theorem loneKingKNN_decided : loneKingDecided loneKingKNN = true := by
   native_decide
 
+theorem loneKingKNN_hasLoneKing : HasLoneKing loneKingKNN := by
+  native_decide
+
 /-- Checkmate is reachable from `loneKingKNN`, decided by `loneKingDecidable`. -/
 theorem loneKingKNN_decide :
     @decide (CheckmateReachable loneKingKNN)
       (loneKingDecidable _ ((isValid_eq_true_iff _).mp loneKingKNN_isValid)
-        loneKingKNN_decided) = true := by
+        loneKingKNN_hasLoneKing) = true := by
   native_decide
 
 theorem loneKingBlackArmy_decided : loneKingDecided loneKingBlackArmy = true := by
@@ -805,12 +1050,15 @@ theorem loneKingForcedCapture_decided : loneKingDecided loneKingForcedCapture = 
   unfold loneKingDecided
   rw [loneKingForcedCapture_dead, Bool.or_true]
 
+theorem loneKingForcedCapture_hasLoneKing : HasLoneKing loneKingForcedCapture := by
+  native_decide
+
 /-- Checkmate is not reachable from `loneKingForcedCapture`, decided by
 `loneKingDecidable`. -/
 theorem loneKingForcedCapture_decide :
     @decide (CheckmateReachable loneKingForcedCapture)
       (loneKingDecidable _ ((isValid_eq_true_iff _).mp loneKingForcedCapture_isValid)
-        loneKingForcedCapture_decided) = false := by
+        loneKingForcedCapture_hasLoneKing) = false := by
   native_decide
 
 end Position

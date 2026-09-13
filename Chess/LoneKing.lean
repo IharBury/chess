@@ -1,4 +1,6 @@
 import Chess.KingPawnTheorems
+import Mathlib.Data.Fintype.Pi
+import Mathlib.Data.Fintype.Powerset
 
 /-!
 # Lone king versus arbitrary material: an engineered mating line
@@ -34,10 +36,22 @@ itself a proof of deadness, so the negative answer is engineered too:
 `Position.loneKingDead` recognizes a position as dead when it is a
 rejected three-piece ending, a stalemate, or when every legal move leads
 to such a position within two plies. `Position.loneKingDecided` records
-that one of the two procedures succeeded, and then
-`Position.loneKingDecidable` decides `CheckmateReachable`. For at most
-three pieces the procedures always succeed; with more material a position
-that neither settles is left undecided rather than searched.
+that one of the two procedures succeeded. For at most three pieces the
+procedures always succeed.
+
+A position with more material that neither procedure settles is not left
+undecided: `Position.loneKingVerdict` falls back to an exhaustive
+exploration of the positions reachable from it (`LoneKing.explore`),
+which stops as soon as it meets a checkmate or a position whose
+engineered line succeeds, and does not expand a position recognized as
+dead — a rejected three-piece ending, or the strong side left with a
+king and bishops of one square color (`Chess.LoneKingMaterial`). The
+exploration terminates because there are finitely many positions, and
+the verdict is proved correct for every valid position in which one
+player has only a king (`Position.HasLoneKing`), which gives
+`Position.loneKingDecidable : Decidable (CheckmateReachable p)` from
+exactly those two hypotheses. The engineered procedures answer first, so
+the exhaustive fallback runs only on the positions they leave open.
 -/
 
 namespace Chess
@@ -124,6 +138,39 @@ def loneKingSide? (p : Position) : Option Color :=
   if bare .black then some .black
   else if bare .white then some .white
   else none
+
+/-- Every piece of color `c` on the board is a king: the player `c` has
+only a king (possibly none, on an invalid board). -/
+def LoneFor (c : Color) (p : Position) : Prop :=
+  ∀ s q, p.board s = some q → q.color = c → q.kind = .king
+
+instance {c : Color} {p : Position} : Decidable (LoneFor c p) := by
+  unfold LoneFor
+  infer_instance
+
+/-- One of the players has only a king on the board. -/
+def HasLoneKing (p : Position) : Prop :=
+  ∃ c, LoneFor c p
+
+instance {p : Position} : Decidable (HasLoneKing p) := by
+  unfold HasLoneKing
+  infer_instance
+
+/-- The player with only a king: Black when Black has only a king,
+otherwise White. Meaningful under `HasLoneKing` (`loneFor_loneColor`). -/
+def loneColor (p : Position) : Color :=
+  if LoneFor .black p then .black else .white
+
+/-- Every piece of color `s` other than a king is a bishop standing on a
+square of color `χ`. Together with a bare opponent this material cannot
+checkmate (`Chess.LoneKingMaterial`). -/
+def OnlyBishopsOn (s χ : Color) (p : Position) : Prop :=
+  ∀ sq q, p.board sq = some q → q.color = s → q.kind ≠ .king →
+    q.kind = .bishop ∧ sq.color = χ
+
+instance {s χ : Color} {p : Position} : Decidable (OnlyBishopsOn s χ p) := by
+  unfold OnlyBishopsOn
+  infer_instance
 
 end Position
 
@@ -805,10 +852,129 @@ def loneKingDead (p : Position) : Bool :=
   LoneKing.deadWithin LoneKing.deadFuel p.normalize
 
 /-- Whether the engineered procedures settle the position one way or the
-other; on a valid position this yields `Decidable (CheckmateReachable p)`
-(`loneKingDecidable`). -/
+other without the exhaustive fallback of `loneKingVerdict`. -/
 def loneKingDecided (p : Position) : Bool :=
   loneKingCheckmateReachable p || loneKingDead p
+
+/-! ### Positions form a finite type with decidable equality
+
+Needed to bound the exhaustive exploration below: a list of distinct
+positions has at most `Fintype.card Position` entries. Neither instance
+is ever evaluated at run time. -/
+
+instance : DecidableEq Board :=
+  inferInstanceAs (DecidableEq (Square → Option Piece))
+
+instance : Fintype Board :=
+  inferInstanceAs (Fintype (Square → Option Piece))
+
+/-- Forget the structure, viewing a position as a tuple. -/
+def equivProd : Position ≃ Board × Color × CastlingRights × Option Square where
+  toFun p := (p.board, p.toMove, p.castling, p.enPassant)
+  invFun q := ⟨q.1, q.2.1, q.2.2.1, q.2.2.2⟩
+  left_inv p := by
+    cases p
+    rfl
+  right_inv q := by
+    rcases q with ⟨_, _, _, _⟩
+    rfl
+
+end Position
+
+deriving instance DecidableEq for Position
+
+instance : Fintype Position :=
+  Fintype.ofEquiv _ Position.equivProd.symm
+
+namespace LoneKing
+
+/-! ### Exhaustive fallback
+
+The positions the engineered procedures leave open are explored
+exhaustively. Every position met is either settled on the spot or
+expanded into the positions its legal moves reach; the exploration ends
+with `true` at the first position that is checkmate or whose engineered
+line succeeds, and with `false` once every reachable position has been
+seen without meeting one (`explore_spec` in `Chess.LoneKingTheorems`).
+Positions recognized as dead are not expanded. -/
+
+/-- The positions reached by the legal moves of `q`, with tabulated
+boards. -/
+def successors (q : Position) : List Position :=
+  (candidateMoves q).filterMap fun m =>
+    if q.isLegalMove m then some (q.play m).normalize else none
+
+/-- A position settled as dead without expansion, the lone king being of
+color `c`: a rejected three-piece ending, or the strong side left with a
+king and bishops all on squares of one color. -/
+def deadNode (c : Color) (q : Position) : Bool :=
+  deadLeaf q || decide (Position.OnlyBishopsOn c.other .white q) ||
+    decide (Position.OnlyBishopsOn c.other .black q)
+
+/-- Plies allowed for the engineered line tried at every explored
+position. Shorter than `fuel`, since a line that wanders is tried again
+from the next position. -/
+def probeFuel : Nat := 120
+
+/-- Whether a legal engineered line from `q`, with `probeFuel` plies, ends
+in checkmate. Sound without any hypothesis on `q`: the line is checked. -/
+def probeLive (q : Position) : Bool :=
+  let line := engineer probeFuel q.normalize []
+  Position.pathLegalN q line && (Position.playSeqN q line).inCheckmate
+
+/-- The members of `succ` not yet in `V`. -/
+def fresh (V succ : List Position) : List Position :=
+  succ.filter fun r => decide (r ∉ V)
+
+/-- Explore the positions of the work list `W`, all of which belong to the
+list `V` of positions seen so far. A position is settled as live when
+`probeLive` finds a mating line from it or when it is checkmate (in check
+with no successor); it is left unexpanded when `deadNode` recognizes it
+as dead; otherwise its unseen successors are appended to both lists.
+Terminates because `V` only grows by positions not yet in it. -/
+def explore (c : Color) (V : List Position) : List Position → Bool
+  | [] => false
+  | q :: W =>
+    if probeLive q then true
+    else if deadNode c q then explore c V W
+    else
+      let succ := successors q
+      if q.inCheck && succ.isEmpty then true
+      else explore c (V ++ fresh V succ) (W ++ fresh V succ)
+termination_by W => (Fintype.card Position - V.toFinset.card, W.length)
+decreasing_by
+  · exact Prod.Lex.right _ (Nat.lt_succ_self _)
+  · by_cases hnew : fresh V (successors q) = []
+    · rw [hnew, List.append_nil, List.append_nil]
+      exact Prod.Lex.right _ (Nat.lt_succ_self _)
+    · apply Prod.Lex.left
+      obtain ⟨r, hr⟩ := List.exists_mem_of_ne_nil _ hnew
+      have hrV : r ∉ V := of_decide_eq_true (List.mem_filter.mp hr).2
+      have hsub : V.toFinset ⊆ (V ++ fresh V (successors q)).toFinset := by
+        rw [List.toFinset_append]
+        exact Finset.subset_union_left
+      have hlt : V.toFinset.card < (V ++ fresh V (successors q)).toFinset.card :=
+        Finset.card_lt_card ((Finset.ssubset_iff_of_subset hsub).mpr
+          ⟨r, by simp [hr], by simpa using hrV⟩)
+      have hle := (V ++ fresh V (successors q)).toFinset.card_le_univ
+      omega
+
+end LoneKing
+
+namespace Position
+
+/-- Whether checkmate is reachable from a position in which one player
+has only a king. The engineered procedures answer first
+(`loneKingCheckmateReachable`, then `loneKingDead`); a position they leave
+open is explored exhaustively by `LoneKing.explore`. Correct for every
+valid position with a bare king (`loneKingVerdict_iff`), which makes
+`loneKingDecidable` a `Decidable (CheckmateReachable p)`. -/
+def loneKingVerdict (p : Position) : Bool :=
+  if loneKingCheckmateReachable p then true
+  else if loneKingDead p then false
+  else
+    let p' := p.normalize
+    LoneKing.explore (loneColor p) [p'] [p']
 
 end Position
 
