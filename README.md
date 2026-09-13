@@ -9,8 +9,11 @@ position (promotions to different pieces counted separately), checkmate,
 stalemate, game states
 (current position, historical positions, and a pending draw offer),
 legal actions of the player to move, whether an action ends the game,
-and finished games
-(position history, player declarations, technical ends, and outcomes) are specified as Lean
+finished games
+(position history, player declarations, technical ends, and outcomes),
+and the result of playing an action
+(the next game state, or a completed game)
+are specified as Lean
 types and predicates. Theorems in the library are machine-checked: `lake build`
 fails if any of them stops being true of the definitions.
 
@@ -69,6 +72,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.Decide` | Any valid position: a checked cooperative mating line, a material-dead verdict, or exhaustive exploration; `Position.checkmateReachableDecidable` decides `CheckmateReachable` from `Valid p`, and `Position.deadPositionDecidable` decides `DeadPosition` (`Chess.DecideTheorems`) |
 | `Chess.EndsGameTheorems` | `GameState.endsGameDecidable` decides `EndsGame` when every move the action plays leaves a valid position |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes; finishing by an ending action |
+| `Chess.Play` | Playing an action: the next game state, or a completed game |
 
 Import the whole library with `import Chess`, or import a single module.
 
@@ -103,6 +107,7 @@ Sample facts already in the library:
 * an action ends the game (`GameState.EndsGame`) when it checkmates, stalemates, accepts a draw, resigns, claims repetition or the fifty-move rule, or produces a dead position, fivefold repetition, or 75 moves without progress; White's `e2–e4` at the start does not. `GameState.endsGameDecidable` decides the property when every move the action plays leaves a valid position (`endsGame_eq_true_iff`): resignation at the start, `Qh7` mate, `a7` stalemate, a two-king king move, fivefold `e2–e4`, the 75-move rule, and accepting a draw are settled by evaluating `GameState.endsGame`
 * a finished game records every position, player declarations (repetition claim, resignation, draw proposals with proposer and turn, acceptance), technical termination (including the timer), and who won or a draw
 * `FinishedGame.ofAction` turns an unfinished game and an ending action into that record: resignation at the start is a win for Black; a mating move is a win for the player who moved; accepting a draw, a repetition or fifty-move claim, stalemate, a dead position, fivefold repetition, and the 75-move rule are draws
+* `GameState.after` carries out an action: White's `e2–e4` at the start continues as the game after `1. e4`; resignation at the start finishes as a win for Black; after `1. e4`, Black playing `e7–e5` and offering a draw continues with that offer pending; a mating move, accepting a draw, a repetition or fifty-move claim, stalemate, a dead position, fivefold repetition, and the 75-move rule finish the game
 * White's win, Black's win, and a draw are three distinct outcomes
 * bishops stay on one square-color; knights always change square-color
 * a knight on `a1` attacks exactly `b3` and `c2`
