@@ -172,7 +172,13 @@ instance {s χ : Color} {p : Position} : Decidable (OnlyBishopsOn s χ p) := by
   unfold OnlyBishopsOn
   infer_instance
 
+/-- Boards are compared square by square. -/
+instance : DecidableEq Board :=
+  inferInstanceAs (DecidableEq (Square → Option Piece))
+
 end Position
+
+deriving instance DecidableEq for Position
 
 namespace LoneKing
 
@@ -589,11 +595,18 @@ def minorStrongMove (c : Ctx) (pl : MinorPlan) : Option Move :=
     [corner, side, kingTarget, tri₁, tri₂, chR.final, cvR.final].map f
   let quiet (q : Piece) (t : Square) : Bool :=
     !(reserved.contains t) && !(wouldAttack b q t (f corner)) && !(wouldAttack b q t (f side))
+  -- A piece heads for its waiting squares through quiet squares, or, when
+  -- no such route exists (a bishop on the long diagonal into the corner
+  -- can only leave it through squares attacking the corner), through any
+  -- square that is not reserved.
   let progress (s : Square) (q : Piece) (goals : List Square) (allowed : Square → Bool) :
       Option Move :=
     match firstStepToward b q s goals allowed with
     | some t => attempt (Move.std s t)
-    | none => none
+    | none =>
+      match firstStepToward b q s goals (fun t => !(reserved.contains t)) with
+      | some t => attempt (Move.std s t)
+      | none => none
   if bkC == corner && f cvS == cvR.final && chReady && kingReady then
     attempt (Move.std chS (f chR.final))
   else if bkC == side && kingReady && chReady && cvReady then
@@ -675,7 +688,7 @@ def loneTempo (c : Ctx) (avoid : List Square) : Option Move :=
 the corner and the square beside it, or walk to the corner. -/
 def minorLoneMove (c : Ctx) (pl : MinorPlan) : Option Move :=
   let f := pl.frame.map
-  let legal (t : Square) : Bool := c.p.isLegalMove (Move.std c.bk t)
+  let legal (t : Square) : Bool := (c.p.board t).isNone && c.p.isLegalMove (Move.std c.bk t)
   let bkC := f c.bk
   let fallback := loneTempo c []
   if bkC == corner then
@@ -744,10 +757,40 @@ def knownLine? (p : Position) : Option (List Move) :=
   else if (KPState.ofPosition? p).isSome then some (Position.kingPawnMatingLine p)
   else none
 
-/-- Build the line ply by ply; `acc` holds the moves so far in reverse. -/
-def engineer : Nat → Position → List Move → List Move
-  | 0, _, acc => acc.reverse
-  | fuel + 1, p, acc =>
+/-- Whether two positions coincide. Cheaper than decidable equality on
+lists of positions: the side to move is compared first. -/
+def samePosition (p q : Position) : Bool :=
+  p.toMove == q.toMove && p.enPassant == q.enPassant && p.castling == q.castling &&
+    allSquares.all fun s => p.board s == q.board s
+
+/-- Whether `p` is among `seen`. -/
+def seenBefore (seen : List Position) (p : Position) : Bool :=
+  seen.any (samePosition p)
+
+/-- A move of the side to move leading to a position not in `seen`: for the
+strong side an acceptable king or piece move, for the lone side a legal
+king step onto an empty square. Used when the planned move would repeat a
+position: the plan depends on the position alone and would cycle. -/
+def escapeMove (c : Ctx) (seen : List Position) : Option Move :=
+  let b := c.p.board
+  let fresh (m : Move) : Bool := !(seenBefore seen (c.p.play m).normalize)
+  if c.p.toMove == c.strong then
+    let kingMoves := (destsFrom (b.clear c.wk) ⟨c.strong, .king⟩ c.wk).map (Move.std c.wk)
+    let pieceMoves := c.pieces.flatMap fun (s, k) =>
+      (destsFrom (b.clear s) ⟨c.strong, k⟩ s).map (Move.std s)
+    (kingMoves ++ pieceMoves).find? fun m => afterOk c.p c.bk m && fresh m
+  else
+    let steps := ((kingNeighbors c.bk).filter fun t => (b t).isNone).map (Move.std c.bk)
+    steps.find? fun m => c.p.isLegalMove m && fresh m
+
+/-- Build the line ply by ply; `acc` holds the moves so far in reverse and
+`seen` the positions passed through. A planned move that would repeat a
+position is replaced by an `escapeMove` when there is one; otherwise it is
+played all the same, once: arriving a second time at a seen position ends
+the line, since the other side has then also failed to escape. -/
+def engineer : Nat → Position → List Move → List Position → List Move
+  | 0, _, acc, _ => acc.reverse
+  | fuel + 1, p, acc, seen =>
     match Ctx.of? p with
     | none => acc.reverse
     | some c =>
@@ -758,7 +801,15 @@ def engineer : Nat → Position → List Move → List Move
         | none =>
           match (if p.toMove == c.strong then strongMove c else loneMove c) with
           | none => acc.reverse
-          | some m => engineer fuel (p.play m).normalize (m :: acc)
+          | some m =>
+            let next := (p.play m).normalize
+            if seenBefore seen next then
+              match escapeMove c seen with
+              | some m' => engineer fuel (p.play m').normalize (m' :: acc) (p :: seen)
+              | none =>
+                if seenBefore seen p then acc.reverse
+                else engineer fuel next (m :: acc) (p :: seen)
+            else engineer fuel next (m :: acc) (p :: seen)
 
 /-- Plies allowed for the engineered line. -/
 def fuel : Nat := 600
@@ -773,7 +824,7 @@ the two-minor-piece corner picture. The result is `[]` or an incomplete
 line when the engineering does not succeed; `loneKingCheckmateReachable`
 checks the outcome. -/
 def loneKingMatingLine (p : Position) : List Move :=
-  LoneKing.engineer LoneKing.fuel p.normalize []
+  LoneKing.engineer LoneKing.fuel p.normalize [] []
 
 /-- Whether checkmate is reachable from a position in which one side has a
 bare king. A proven three-piece ending (king and queen, rook, or pawn
@@ -856,17 +907,18 @@ other without the exhaustive fallback of `loneKingVerdict`. -/
 def loneKingDecided (p : Position) : Bool :=
   loneKingCheckmateReachable p || loneKingDead p
 
-/-! ### Positions form a finite type with decidable equality
+/-! ### Positions form a finite type
 
 Needed to bound the exhaustive exploration below: a list of distinct
-positions has at most `Fintype.card Position` entries. Neither instance
-is ever evaluated at run time. -/
+positions has at most `Fintype.card Position` entries. The `Fintype`
+instances only serve the termination proof and are taken from `Finite`
+through choice, so that no compiled code enumerates the boards. -/
 
-instance : DecidableEq Board :=
-  inferInstanceAs (DecidableEq (Square → Option Piece))
+instance : Finite Board :=
+  inferInstanceAs (Finite (Square → Option Piece))
 
-instance : Fintype Board :=
-  inferInstanceAs (Fintype (Square → Option Piece))
+noncomputable instance : Fintype Board :=
+  Fintype.ofFinite Board
 
 /-- Forget the structure, viewing a position as a tuple. -/
 def equivProd : Position ≃ Board × Color × CastlingRights × Option Square where
@@ -881,10 +933,11 @@ def equivProd : Position ≃ Board × Color × CastlingRights × Option Square w
 
 end Position
 
-deriving instance DecidableEq for Position
+instance : Finite Position :=
+  Finite.of_equiv _ Position.equivProd.symm
 
-instance : Fintype Position :=
-  Fintype.ofEquiv _ Position.equivProd.symm
+noncomputable instance : Fintype Position :=
+  Fintype.ofFinite Position
 
 namespace LoneKing
 
@@ -919,7 +972,7 @@ def probeFuel : Nat := 120
 /-- Whether a legal engineered line from `q`, with `probeFuel` plies, ends
 in checkmate. Sound without any hypothesis on `q`: the line is checked. -/
 def probeLive (q : Position) : Bool :=
-  let line := engineer probeFuel q.normalize []
+  let line := engineer probeFuel q.normalize [] []
   Position.pathLegalN q line && (Position.playSeqN q line).inCheckmate
 
 /-- The members of `succ` not yet in `V`. -/
