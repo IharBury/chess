@@ -452,27 +452,29 @@ def smallBudget : Nat := 20000
 def occCount (p : Position) : Nat :=
   allSquares.foldl (fun n s => if (p.board s).isSome then n + 1 else n) 0
 
+/-- A position settled as dead without expansion. -/
+def deadNode (q : Position) : Bool :=
+  LoneKing.deadLeaf q || q.materialDeadB
+
 /-- An engineered cooperative mating line, if one is found and checked. -/
 def matingLine? (p : Position) : Option (List Move) :=
   let p' := p.normalize
-  let n := occCount p'
-  (checkedLine p' (some foolsMate)).orElse fun _ =>
-  (checkedLine p' (knownLine? p')).orElse fun _ =>
-  (checkedLine p' (greedy greedyFuel p' [] [])).orElse fun _ =>
-  (checkedLine p' (if n ≤ 6 then
-      bestFirst bestFirstBudget [(nodeScore p', p', [])] [] else none)).orElse fun _ =>
-  checkedLine p' (if n ≤ 4 then none
-    else if n ≤ 8 then iddfs smallBudget smallDepth p'
-    else iddfs iddfsBudget iddfsDepth p')
+  if deadNode p' then none
+  else
+    let n := occCount p'
+    (checkedLine p' (some foolsMate)).orElse fun _ =>
+    (checkedLine p' (knownLine? p')).orElse fun _ =>
+    (checkedLine p' (greedy greedyFuel p' [] [])).orElse fun _ =>
+    (checkedLine p' (if n ≤ 6 then
+        bestFirst bestFirstBudget [(nodeScore p', p', [])] [] else none)).orElse fun _ =>
+    checkedLine p' (if n ≤ 6 then none
+      else if n ≤ 8 then iddfs smallBudget smallDepth p'
+      else iddfs iddfsBudget iddfsDepth p')
 
 /-- Whether the engineered line succeeds. Sound (`probe_sound`): the line
 is checked. -/
 def probe (p : Position) : Bool :=
   (matingLine? p).isSome
-
-/-- A position settled as dead without expansion. -/
-def deadNode (q : Position) : Bool :=
-  LoneKing.deadLeaf q || q.materialDeadB
 
 /-- Explore the work list `W`, all of whose members belong to the seen
 list `V`. A position is live when a recognized ending has a checked

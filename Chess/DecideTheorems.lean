@@ -294,9 +294,8 @@ theorem matingLine?_sound {p : Position} {ms : List Move}
     (h : matingLine? p = some ms) : CheckmateReachable p := by
   unfold matingLine? at h
   simp only [normalize_eq] at h
-  rw [orElse_eq_some] at h
-  rcases h with h | ⟨_, h⟩
-  · exact checkedLine_sound h
+  split at h
+  · cases h
   · rw [orElse_eq_some] at h
     rcases h with h | ⟨_, h⟩
     · exact checkedLine_sound h
@@ -306,7 +305,10 @@ theorem matingLine?_sound {p : Position} {ms : List Move}
       · rw [orElse_eq_some] at h
         rcases h with h | ⟨_, h⟩
         · exact checkedLine_sound h
-        · exact checkedLine_sound h
+        · rw [orElse_eq_some] at h
+          rcases h with h | ⟨_, h⟩
+          · exact checkedLine_sound h
+          · exact checkedLine_sound h
 
 theorem probe_sound {p : Position} (h : probe p = true) : CheckmateReachable p := by
   unfold probe at h
