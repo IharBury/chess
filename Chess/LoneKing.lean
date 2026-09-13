@@ -29,12 +29,15 @@ square color) is detected up front. `Position.loneKingCheckmateReachable`
 answers `true` only when the engineered line is checked to be legal and
 to end in checkmate, or when the position is one of the proven
 three-piece endings and its state is not dead; it is therefore sound for
-every valid position (`Chess.LoneKingTheorems`). A failed line is not a
-proof of deadness: with more material on the board the module answers
-`false` whenever its fixed plan does not go through, and establishing
-that such a position is really dead would need the search this module
-deliberately does not perform. For at most three pieces the answer is
-complete.
+every valid position (`Chess.LoneKingTheorems`). A failed line is not by
+itself a proof of deadness, so the negative answer is engineered too:
+`Position.loneKingDead` recognizes a position as dead when it is a
+rejected three-piece ending, a stalemate, or when every legal move leads
+to such a position within two plies. `Position.loneKingDecided` records
+that one of the two procedures succeeded, and then
+`Position.loneKingDecidable` decides `CheckmateReachable`. For at most
+three pieces the procedures always succeed; with more material a position
+that neither settles is left undecided rather than searched.
 -/
 
 namespace Chess
@@ -743,6 +746,69 @@ def loneKingCheckmateReachable (p : Position) : Bool :=
   | none =>
     let line := p.loneKingMatingLine
     pathLegalN p line && (playSeqN p line).inCheckmate
+
+end Position
+
+namespace LoneKing
+
+open KQState (allSquares)
+
+/-! ### Engineering a proof of deadness
+
+The negative answer is also engineered rather than searched for: a
+position is recognized as dead when it is a valid three-piece ending (or
+two kings) without castling rights that `loneKingCheckmateReachable`
+rejects, or when it is not checkmate and every legal move leads to a
+position recognized as dead, to a small fixed depth. Stalemate is the case
+of no legal move at all. -/
+
+/-- Every promotion field a move can carry. -/
+def promotionFields : List (Option PieceKind) :=
+  [none, some .queen, some .rook, some .bishop, some .knight, some .king, some .pawn]
+
+/-- A superset of the legal moves of `p`: every move from a square holding a
+piece of the side to move (`mem_candidateMoves_of_legalMove`). -/
+def candidateMoves (p : Position) : List Move :=
+  (allSquares.filter fun s =>
+      match p.board s with
+      | some q => q.color == p.toMove
+      | none => false).flatMap fun s =>
+    allSquares.flatMap fun t => promotionFields.map fun pr => ⟨s, t, pr⟩
+
+/-- A position settled as dead by the proven three-piece theories: valid,
+at most three pieces, no castling rights, and rejected by
+`loneKingCheckmateReachable`. -/
+def deadLeaf (p : Position) : Bool :=
+  Position.isValid p && p.board.occupied.card ≤ 3 && decide (p.castling = ∅) &&
+    !p.loneKingCheckmateReachable
+
+/-- Deadness to the given depth: a leaf, or not checkmate with every legal
+move leading to a position dead to the smaller depth. -/
+def deadWithin : Nat → Position → Bool
+  | 0, p => deadLeaf p
+  | fuel + 1, p =>
+    deadLeaf p ||
+      (!p.inCheckmate && (candidateMoves p).all fun m =>
+        !p.isLegalMove m || deadWithin fuel (p.play m).normalize)
+
+/-- Depth of the deadness check. -/
+def deadFuel : Nat := 2
+
+end LoneKing
+
+namespace Position
+
+/-- Whether the position is recognized as dead: a proven three-piece
+verdict, stalemate, or every legal move leading to such a position within
+two plies. Sound (`loneKingDead_sound`); a `false` answer proves nothing. -/
+def loneKingDead (p : Position) : Bool :=
+  LoneKing.deadWithin LoneKing.deadFuel p.normalize
+
+/-- Whether the engineered procedures settle the position one way or the
+other; on a valid position this yields `Decidable (CheckmateReachable p)`
+(`loneKingDecidable`). -/
+def loneKingDecided (p : Position) : Bool :=
+  loneKingCheckmateReachable p || loneKingDead p
 
 end Position
 

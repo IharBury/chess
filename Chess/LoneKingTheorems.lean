@@ -404,6 +404,118 @@ def loneKingCheckmateReachableDecidable (p : Position) (hv : Valid p)
   decidable_of_iff (loneKingCheckmateReachable p = true)
     (loneKingCheckmateReachable_iff_of_card_le_three hv hocc hc).symm
 
+/-! ### Deadness: soundness of `loneKingDead` -/
+
+/-- A reachable position is the start itself or is reached through a first
+legal move. -/
+theorem Reachable.eq_or_exists_first {p q : Position} (hr : Reachable p q) :
+    q = p ∨ ∃ m, LegalMove p m ∧ Reachable (p.play m) q := by
+  induction hr with
+  | refl => exact Or.inl rfl
+  | step m _ hleg ih =>
+    rcases ih with rfl | ⟨m₀, hl₀, hr₀⟩
+    · exact Or.inr ⟨m, hleg, Reachable.refl⟩
+    · exact Or.inr ⟨m₀, hl₀, Reachable.step m hr₀ hleg⟩
+
+/-- A position that is not checkmate and all of whose legal moves lead to
+dead positions is dead. -/
+theorem deadPosition_of_forall_legalMove {p : Position} (h₀ : ¬ InCheckmate p)
+    (h : ∀ m, LegalMove p m → DeadPosition (p.play m)) : DeadPosition p := by
+  intro q hr hm
+  rcases hr.eq_or_exists_first with rfl | ⟨m, hl, hr'⟩
+  · exact h₀ hm
+  · exact h m hl q hr' hm
+
+theorem LoneKing.mem_candidateMoves_of_legalMove {p : Position} {m : Move}
+    (h : LegalMove p m) : m ∈ LoneKing.candidateMoves p := by
+  unfold LegalMove isLegalMove at h
+  rcases m with ⟨src, dst, pr⟩
+  simp only at h
+  split at h
+  · cases h
+  · rename_i piece hpiece
+    have hcolor : (piece.color == p.toMove) = true := by
+      simp only [Bool.and_eq_true] at h
+      exact h.1.1.1
+    unfold LoneKing.candidateMoves
+    simp only [List.mem_flatMap, List.mem_filter, List.mem_map]
+    refine ⟨src, ⟨KQState.mem_allSquares src, ?_⟩, dst, KQState.mem_allSquares dst, pr, ?_,
+      rfl⟩
+    · simp [hpiece, hcolor]
+    · rcases pr with _ | k
+      · simp [LoneKing.promotionFields]
+      · cases k <;> simp [LoneKing.promotionFields]
+
+theorem LoneKing.deadLeaf_sound {p : Position} (h : LoneKing.deadLeaf p = true) :
+    DeadPosition p := by
+  unfold LoneKing.deadLeaf at h
+  simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_true'] at h
+  obtain ⟨⟨⟨hv, hocc⟩, hc⟩, hnr⟩ := h
+  rw [DeadPosition_iff_not_CheckmateReachable,
+    loneKingCheckmateReachable_iff_of_card_le_three ((isValid_eq_true_iff p).mp hv) hocc hc,
+    hnr]
+  exact Bool.false_ne_true
+
+theorem LoneKing.deadWithin_sound :
+    ∀ (fuel : Nat) (p : Position), LoneKing.deadWithin fuel p = true → DeadPosition p := by
+  intro fuel
+  induction fuel with
+  | zero => exact fun p h => LoneKing.deadLeaf_sound h
+  | succ fuel ih =>
+    intro p h
+    unfold LoneKing.deadWithin at h
+    rcases Bool.or_eq_true_iff.mp h with hleaf | hrec
+    · exact LoneKing.deadLeaf_sound hleaf
+    · obtain ⟨hnm, hall⟩ := Bool.and_eq_true_iff.mp hrec
+      refine deadPosition_of_forall_legalMove ?_ fun m hm => ?_
+      · intro hm
+        exact Bool.false_ne_true
+          ((Bool.not_eq_true' _).mp hnm ▸ (inCheckmate_eq_true_iff p).mpr hm)
+      · have hmem := LoneKing.mem_candidateMoves_of_legalMove hm
+        have := List.all_eq_true.mp hall m hmem
+        rcases Bool.or_eq_true_iff.mp this with hill | hdead
+        · exact absurd hm (fun hl => Bool.false_ne_true ((Bool.not_eq_true' _).mp hill ▸ hl))
+        · rw [normalize_eq] at hdead
+          exact ih _ hdead
+
+/-- A position recognized as dead is dead. No validity hypothesis is
+needed: the leaves check validity themselves. -/
+theorem loneKingDead_sound {p : Position} (h : loneKingDead p = true) : DeadPosition p := by
+  unfold loneKingDead at h
+  rw [normalize_eq] at h
+  exact LoneKing.deadWithin_sound _ _ h
+
+/-! ### Deciding `CheckmateReachable` -/
+
+/-- Decides whether checkmate is reachable from a valid position that the
+engineered procedures settle: `true` comes with a legal mating line or a
+proven three-piece state, `false` with a proof of deadness. -/
+def loneKingDecidable (p : Position) (hv : Valid p) (h : loneKingDecided p = true) :
+    Decidable (CheckmateReachable p) :=
+  if hr : loneKingCheckmateReachable p = true then
+    isTrue (loneKingCheckmateReachable_sound hv hr)
+  else
+    isFalse ((DeadPosition_iff_not_CheckmateReachable p).mp (loneKingDead_sound (by
+      unfold loneKingDecided at h
+      simpa [hr] using h)))
+
+/-- Every valid position with at most three pieces and no castling rights
+is settled. -/
+theorem loneKingDecided_of_card_le_three {p : Position} (hv : Valid p)
+    (hocc : p.board.occupied.card ≤ 3) (hc : p.castling = ∅) :
+    loneKingDecided p = true := by
+  unfold loneKingDecided
+  cases hr : loneKingCheckmateReachable p
+  · have hleaf : LoneKing.deadLeaf p = true := by
+      unfold LoneKing.deadLeaf
+      simp [(isValid_eq_true_iff p).mpr hv, hocc, hc, hr]
+    have hdead : loneKingDead p = true := by
+      unfold loneKingDead LoneKing.deadFuel
+      rw [normalize_eq]
+      simp [LoneKing.deadWithin, hleaf]
+    simp [hdead]
+  · rfl
+
 /-! ### Examples
 
 The engineered line is exercised on material that no earlier module
@@ -628,6 +740,77 @@ theorem loneKingKB_deadPosition : DeadPosition loneKingKB := by
 in agreement with `kingBishopsSame_deadPosition`. -/
 theorem kingBishopsSame_loneKing_not_reachable :
     loneKingCheckmateReachable kingBishopsSame = false := by
+  native_decide
+
+/-! `loneKingDecided` settles positions in both directions: the mating
+examples above, and dead positions with more than three pieces recognized
+through stalemate. -/
+
+theorem loneKingKNN_decided : loneKingDecided loneKingKNN = true := by
+  native_decide
+
+/-- Checkmate is reachable from `loneKingKNN`, decided by `loneKingDecidable`. -/
+theorem loneKingKNN_decide :
+    @decide (CheckmateReachable loneKingKNN)
+      (loneKingDecidable _ ((isValid_eq_true_iff _).mp loneKingKNN_isValid)
+        loneKingKNN_decided) = true := by
+  native_decide
+
+theorem loneKingBlackArmy_decided : loneKingDecided loneKingBlackArmy = true := by
+  native_decide
+
+/-- Black king `a8` stalemated by the white king `c7`, bishop `b6`, and pawn
+`h2`, Black to move: four pieces, dead. -/
+def loneKingStalemate : Position where
+  board := boardOfList [(Square.a8, ⟨.black, .king⟩), (⟨2, 6⟩, ⟨.white, .king⟩),
+    (Square.b6, ⟨.white, .bishop⟩), (⟨7, 1⟩, ⟨.white, .pawn⟩)]
+  toMove := .black
+  castling := CastlingRights.empty
+  enPassant := none
+
+theorem loneKingStalemate_isValid : isValid loneKingStalemate = true := by
+  native_decide
+
+theorem loneKingStalemate_dead : loneKingDead loneKingStalemate = true := by
+  native_decide
+
+theorem loneKingStalemate_deadPosition : DeadPosition loneKingStalemate :=
+  loneKingDead_sound loneKingStalemate_dead
+
+/-- Black king `h8` in check from the white rook `g8`, with the white king
+`f6` and bishop `d3` covering `g7` and `h7`, Black to move. The only legal
+move captures the rook, leaving king and bishop against king: dead,
+recognized one ply deep although five pieces stand on the board. -/
+def loneKingForcedCapture : Position where
+  board := boardOfList [(⟨7, 7⟩, ⟨.black, .king⟩), (⟨5, 5⟩, ⟨.white, .king⟩),
+    (⟨3, 2⟩, ⟨.white, .bishop⟩), (Square.g8, ⟨.white, .rook⟩)]
+  toMove := .black
+  castling := CastlingRights.empty
+  enPassant := none
+
+theorem loneKingForcedCapture_isValid : isValid loneKingForcedCapture = true := by
+  native_decide
+
+theorem loneKingForcedCapture_not_reachable :
+    loneKingCheckmateReachable loneKingForcedCapture = false := by
+  native_decide
+
+theorem loneKingForcedCapture_dead : loneKingDead loneKingForcedCapture = true := by
+  native_decide
+
+theorem loneKingForcedCapture_deadPosition : DeadPosition loneKingForcedCapture :=
+  loneKingDead_sound loneKingForcedCapture_dead
+
+theorem loneKingForcedCapture_decided : loneKingDecided loneKingForcedCapture = true := by
+  unfold loneKingDecided
+  rw [loneKingForcedCapture_dead, Bool.or_true]
+
+/-- Checkmate is not reachable from `loneKingForcedCapture`, decided by
+`loneKingDecidable`. -/
+theorem loneKingForcedCapture_decide :
+    @decide (CheckmateReachable loneKingForcedCapture)
+      (loneKingDecidable _ ((isValid_eq_true_iff _).mp loneKingForcedCapture_isValid)
+        loneKingForcedCapture_decided) = false := by
   native_decide
 
 end Position

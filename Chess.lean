@@ -73,7 +73,7 @@ without circular imports:
   (`Chess.KingPawnTheorems`, covering files in `Chess.KingPawnCover`)
 * `Chess.LoneKing` — a bare king against arbitrary material: an engineered mating line
   (sacrifices, promotions, then a proven three-piece line or a two-minor-piece corner
-  mate) decides `CheckmateReachable`, soundly everywhere and completely for at most
-  three pieces (`Chess.LoneKingTheorems`)
+  mate) and an engineered proof of deadness decide `CheckmateReachable`, soundly
+  everywhere and completely for at most three pieces (`Chess.LoneKingTheorems`)
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 -/
