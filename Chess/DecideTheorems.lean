@@ -7,7 +7,9 @@ import Chess.Decide
 (`checkmateVerdict_iff`): a `true` answer is a checked mating line or an
 exhaustive exploration that found checkmate, and a `false` answer is a
 closed-off reachable graph that never meets checkmate. Together these
-give `Position.checkmateReachableDecidable`.
+give `Position.checkmateReachableDecidable`. `DeadPosition` is the
+negation, so `Position.deadPositionDecidable` decides it from the same
+`Valid p` hypothesis.
 -/
 
 namespace Chess
@@ -491,6 +493,24 @@ def checkmateReachableDecidable (p : Position) (hv : Valid p) :
     Decidable (CheckmateReachable p) :=
   decidable_of_iff (checkmateVerdict p = true) (checkmateVerdict_iff hv)
 
+/-- A valid position is dead exactly when `checkmateVerdict` is false. -/
+theorem deadPosition_iff_checkmateVerdict {p : Position} (hv : Valid p) :
+    DeadPosition p ↔ checkmateVerdict p = false := by
+  rw [DeadPosition_iff_not_CheckmateReachable, ← checkmateVerdict_iff hv,
+    Bool.not_eq_true]
+
+/-- Computational form of `deadPosition_iff_checkmateVerdict`. -/
+theorem not_checkmateVerdict_iff_deadPosition {p : Position} (hv : Valid p) :
+    (!checkmateVerdict p) = true ↔ DeadPosition p := by
+  rw [deadPosition_iff_checkmateVerdict hv]
+  cases checkmateVerdict p <;> simp
+
+/-- Decides whether a valid position is dead, by evaluating
+`checkmateVerdict`. -/
+def deadPositionDecidable (p : Position) (hv : Valid p) :
+    Decidable (DeadPosition p) :=
+  decidable_of_iff (checkmateVerdict p = false) (deadPosition_iff_checkmateVerdict hv).symm
+
 /-! ### Examples -/
 
 /-- White king `e1`, black king `e8`, white bishop `c1`, black knight `b8`. -/
@@ -565,6 +585,17 @@ theorem kingBishopVsKnight_checkmateVerdict : checkmateVerdict kingBishopVsKnigh
 
 theorem kingBishopVsKnight_CheckmateReachable : CheckmateReachable kingBishopVsKnight :=
   (checkmateVerdict_iff kingBishopVsKnight_valid).mp kingBishopVsKnight_checkmateVerdict
+
+theorem starting_not_deadPosition_decide :
+    @decide (DeadPosition starting) (deadPositionDecidable starting starting_valid) =
+      false := by
+  native_decide
+
+theorem kingsOnly_deadPosition_decide :
+    @decide (DeadPosition kingsOnly)
+      (deadPositionDecidable kingsOnly
+        ((isValid_eq_true_iff _).mp kingsOnly_isValid)) = true := by
+  native_decide
 
 end Position
 
