@@ -138,9 +138,11 @@ theorem loneKingCheckmateReachable_sound {p : Position} (hv : Valid p)
         obtain ⟨hok, hpos⟩ := kp_ofPosition?_eq_some hs
         exact ((isKingAndPawn_of_ofPosition?_eq_some hs).checkmateReachable_iff_deadB hv hok
           hpos).mpr (by simpa using h)
-      · simp only [pathLegalN_eq, playSeqN_eq, Bool.and_eq_true] at h
-        exact checkmateReachable_of_legalSeq ((pathLegal_iff _ _).mp h.1)
-          ((inCheckmate_eq_true_iff _).mp h.2)
+      · split at h
+        · cases h
+        · simp only [pathLegalN_eq, playSeqN_eq, Bool.and_eq_true] at h
+          exact checkmateReachable_of_legalSeq ((pathLegal_iff _ _).mp h.1)
+            ((inCheckmate_eq_true_iff _).mp h.2)
 
 /-! ### Three pieces: the pawn ending from validity -/
 
@@ -526,9 +528,11 @@ theorem mem_successors {q r : Position} :
 /-- A checked engineered line proves checkmate reachable. -/
 theorem probeLive_sound {q : Position} (h : probeLive q = true) : CheckmateReachable q := by
   unfold probeLive at h
-  simp only [pathLegalN_eq, playSeqN_eq, Bool.and_eq_true] at h
-  exact checkmateReachable_of_legalSeq ((pathLegal_iff _ _).mp h.1)
-    ((inCheckmate_eq_true_iff _).mp h.2)
+  split at h
+  · cases h
+  · simp only [pathLegalN_eq, playSeqN_eq, Bool.and_eq_true] at h
+    exact checkmateReachable_of_legalSeq ((pathLegal_iff _ _).mp h.1)
+      ((inCheckmate_eq_true_iff _).mp h.2)
 
 theorem checkmateReachable_of_play {p : Position} {m : Move} (hleg : LegalMove p m)
     (h : CheckmateReachable (p.play m)) : CheckmateReachable p :=
