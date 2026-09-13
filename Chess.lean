@@ -26,6 +26,7 @@ import Chess.KingQueenTheorems
 import Chess.KingPawnCover
 import Chess.KingPawnTheorems
 import Chess.LoneKing
+import Chess.LoneKingMaterial
 import Chess.LoneKingTheorems
 import Chess.FinishedGame
 
@@ -73,7 +74,11 @@ without circular imports:
   (`Chess.KingPawnTheorems`, covering files in `Chess.KingPawnCover`)
 * `Chess.LoneKing` — a bare king against arbitrary material: an engineered mating line
   (sacrifices, promotions, then a proven three-piece line or a two-minor-piece corner
-  mate) and an engineered proof of deadness decide `CheckmateReachable`, soundly
-  everywhere and completely for at most three pieces (`Chess.LoneKingTheorems`)
+  mate) and an engineered proof of deadness settle most positions, and an exhaustive
+  exploration of the reachable positions settles the rest, so that `CheckmateReachable`
+  is decidable for every valid position in which one player has only a king
+  (`Chess.LoneKingTheorems`)
+* `Chess.LoneKingMaterial` — the bare-king shape is preserved by legal moves, and a king
+  with bishops of one square color cannot checkmate a bare king
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 -/

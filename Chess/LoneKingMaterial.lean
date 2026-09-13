@@ -13,8 +13,8 @@ that neither player has two kings, and that the kings are not adjacent.
 It holds in every valid position with a bare king and is preserved by
 legal moves, without any appeal to validity: a legal move never creates a
 king, and it leaves the mover's king unattacked, so the kings cannot end
-up adjacent. `Position.BishopsOnly c χ p` adds that the other player's
-pieces besides the king are bishops on squares of color `χ`; bishops keep
+up adjacent. `Position.OnlyBishopsOn c.other χ p` adds that the other
+player's pieces besides the king are bishops on squares of color `χ`; bishops keep
 their square color, so this is preserved too. In such a position the
 player to move is never checkmated: the strong side is not in check at
 all, and the lone king in check from a bishop always has an orthogonal

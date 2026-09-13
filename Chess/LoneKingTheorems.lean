@@ -16,10 +16,20 @@ answer is also complete (`loneKingCheckmateReachable_iff_of_card_le_three`):
 the two-king, lone-minor-piece, and same-color-bishop endings are dead, and
 the queen, rook, and pawn endings are decided by their proven state
 machines. This gives a `Decidable` instance for `CheckmateReachable` on
-those positions.
+those positions (`loneKingCheckmateReachableDecidable`).
 
 With more material a `false` answer only reports that the engineered line
-did not succeed; it is not a proof that the position is dead.
+did not succeed; it is not a proof that the position is dead. The negative
+answer is `Position.loneKingDead`, sound everywhere (`loneKingDead_sound`),
+and the positions neither procedure settles are decided by the exhaustive
+fallback of `Position.loneKingVerdict`: `LoneKing.explore` answers `true`
+only on a checkmate or a checked mating line (`explore_true`), and `false`
+only once every position reachable from the start is either recognized as
+dead or has all its successors visited (`explore_false`), which makes the
+start position dead (`deadPosition_of_closed`). Together these give
+`loneKingVerdict_iff` and `Position.loneKingDecidable`, a
+`Decidable (CheckmateReachable p)` for every valid position in which one
+player has only a king (`Position.HasLoneKing`).
 -/
 
 namespace Chess
@@ -1059,6 +1069,71 @@ theorem loneKingForcedCapture_decide :
     @decide (CheckmateReachable loneKingForcedCapture)
       (loneKingDecidable _ ((isValid_eq_true_iff _).mp loneKingForcedCapture_isValid)
         loneKingForcedCapture_hasLoneKing) = false := by
+  native_decide
+
+/-! Positions neither engineered procedure settles are decided by the
+exhaustive fallback of `loneKingVerdict`. -/
+
+/-- White king `e1`, black king `e8`, white bishops `c1` and `e3`, both
+dark, White to move: four pieces, no stalemate in sight, and a material
+verdict the engineered procedures do not give. -/
+def loneKingSameBishops : Position where
+  board := boardOfList [(Square.e1, ⟨.white, .king⟩), (Square.e8, ⟨.black, .king⟩),
+    (Square.c1, ⟨.white, .bishop⟩), (Square.e3, ⟨.white, .bishop⟩)]
+  toMove := .white
+  castling := CastlingRights.empty
+  enPassant := none
+
+theorem loneKingSameBishops_isValid : isValid loneKingSameBishops = true := by
+  native_decide
+
+theorem loneKingSameBishops_not_decided : loneKingDecided loneKingSameBishops = false := by
+  native_decide
+
+theorem loneKingSameBishops_hasLoneKing : HasLoneKing loneKingSameBishops := by
+  native_decide
+
+/-- Checkmate is not reachable from `loneKingSameBishops`, decided by
+`loneKingDecidable` through the fallback. -/
+theorem loneKingSameBishops_decide :
+    @decide (CheckmateReachable loneKingSameBishops)
+      (loneKingDecidable _ ((isValid_eq_true_iff _).mp loneKingSameBishops_isValid)
+        loneKingSameBishops_hasLoneKing) = false := by
+  native_decide
+
+theorem loneKingSameBishops_deadPosition : DeadPosition loneKingSameBishops := by
+  rw [DeadPosition_iff_not_CheckmateReachable]
+  exact @of_decide_eq_false _
+    (loneKingDecidable _ ((isValid_eq_true_iff _).mp loneKingSameBishops_isValid)
+      loneKingSameBishops_hasLoneKing) loneKingSameBishops_decide
+
+/-- Black king `h8` in check from the white rook `g8`, with the white king
+`f6` and the light bishops `d3` and `b1`, Black to move. The only legal
+move captures the rook, leaving king and same-color bishops against king:
+the fallback expands the single successor and recognizes it as dead. -/
+def loneKingForcedIntoBishops : Position where
+  board := boardOfList [(⟨7, 7⟩, ⟨.black, .king⟩), (⟨5, 5⟩, ⟨.white, .king⟩),
+    (⟨3, 2⟩, ⟨.white, .bishop⟩), (Square.b1, ⟨.white, .bishop⟩), (Square.g8, ⟨.white, .rook⟩)]
+  toMove := .black
+  castling := CastlingRights.empty
+  enPassant := none
+
+theorem loneKingForcedIntoBishops_isValid : isValid loneKingForcedIntoBishops = true := by
+  native_decide
+
+theorem loneKingForcedIntoBishops_not_decided :
+    loneKingDecided loneKingForcedIntoBishops = false := by
+  native_decide
+
+theorem loneKingForcedIntoBishops_hasLoneKing : HasLoneKing loneKingForcedIntoBishops := by
+  native_decide
+
+/-- Checkmate is not reachable from `loneKingForcedIntoBishops`, decided by
+`loneKingDecidable` through the fallback. -/
+theorem loneKingForcedIntoBishops_decide :
+    @decide (CheckmateReachable loneKingForcedIntoBishops)
+      (loneKingDecidable _ ((isValid_eq_true_iff _).mp loneKingForcedIntoBishops_isValid)
+        loneKingForcedIntoBishops_hasLoneKing) = false := by
   native_decide
 
 end Position
