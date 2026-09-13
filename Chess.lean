@@ -28,6 +28,8 @@ import Chess.KingPawnTheorems
 import Chess.LoneKing
 import Chess.LoneKingMaterial
 import Chess.LoneKingTheorems
+import Chess.Decide
+import Chess.DecideTheorems
 import Chess.FinishedGame
 
 /-!
@@ -80,5 +82,12 @@ without circular imports:
   (`Chess.LoneKingTheorems`)
 * `Chess.LoneKingMaterial` — the bare-king shape is preserved by legal moves, and a king
   with bishops of one square color cannot checkmate a bare king
+* `Chess.Decide` — any valid position: an engineered cooperative mating line (Fool's mate from
+  the start, a recognized ending, a capture that reduces to one, or a bounded help-mate search)
+  is checked with `Position.pathLegalN` and `Position.inCheckmate`; material that cannot mate
+  (kings and bishops all on one square-color) is dead; remaining positions are explored like
+  `LoneKing.explore`. `Position.checkmateVerdict` is correct for every valid position
+  (`checkmateVerdict_iff` in `Chess.DecideTheorems`), so `Position.checkmateReachableDecidable`
+  is a `Decidable (CheckmateReachable p)` from `Valid p` alone
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 -/
