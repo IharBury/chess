@@ -113,6 +113,20 @@ theorem plays_moveAndClaimNoProgress (m : Move) :
 theorem plays_move_iff (m₁ m₂ : Move) : (move m₁).Plays m₂ ↔ m₁ = m₂ := by
   simp [Plays, move?]
 
+theorem plays_moveAndProposeDraw_iff (m₁ m₂ : Move) :
+    (moveAndProposeDraw m₁).Plays m₂ ↔ m₁ = m₂ := by
+  simp [Plays, move?]
+
+/-- An action plays at most one move. -/
+theorem plays_unique {a : Action} {m₁ m₂ : Move}
+    (h₁ : a.Plays m₁) (h₂ : a.Plays m₂) : m₁ = m₂ :=
+  Option.some.inj (h₁.symm.trans h₂)
+
+/-- An action with no `move?` plays no move. -/
+theorem not_plays_of_move?_none {a : Action} {m : Move}
+    (h : a.move? = none) : ¬ a.Plays m := by
+  simp [Plays, h]
+
 /-- Whether `a` claims a draw by threefold repetition, either after a move
 or in the current position (FIDE Article 9.2). -/
 def claimsRepetition : Action → Bool

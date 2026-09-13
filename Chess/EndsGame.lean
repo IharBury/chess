@@ -188,6 +188,75 @@ theorem endsGame_of_seventyFive {g : GameState} {a : Action} {m : Move}
     EndsGame g a :=
   .seventyFive m hp h
 
+/-- When `a` plays `m` and does not claim a draw, it ends the game exactly
+when the resulting position is checkmate or stalemate, the move is
+fivefold or the 75-move rule, or the resulting position is dead. -/
+theorem EndsGame_iff_of_plays (g : GameState) {a : Action} {m : Move}
+    (hp : a.Plays m) (hnr : ¬ a.ClaimsRepetition) (hnp : ¬ a.ClaimsNoProgress) :
+    EndsGame g a ↔
+      InCheckmate (g.current.play m) ∨
+      InStalemate (g.current.play m) ∨
+      AppearsFivefoldAfter g m ∨
+      LeadsToSeventyFiveMove g m ∨
+      DeadPosition (g.current.play m) := by
+  constructor
+  · intro h
+    cases h with
+    | checkmate m' hp' hc =>
+      rw [Action.plays_unique hp hp']
+      exact Or.inl hc
+    | stalemate m' hp' hs =>
+      rw [Action.plays_unique hp hp']
+      exact Or.inr (Or.inl hs)
+    | fivefold m' hp' hf =>
+      rw [Action.plays_unique hp hp']
+      exact Or.inr (Or.inr (Or.inl hf))
+    | seventyFive m' hp' h75 =>
+      rw [Action.plays_unique hp hp']
+      exact Or.inr (Or.inr (Or.inr (Or.inl h75)))
+    | deadPosition m' hp' hd =>
+      rw [Action.plays_unique hp hp']
+      exact Or.inr (Or.inr (Or.inr (Or.inr hd)))
+    | acceptDraw =>
+      exact (Action.not_plays_of_move?_none Action.move?_acceptDraw hp).elim
+    | surrender =>
+      exact (Action.not_plays_of_move?_none Action.move?_surrender hp).elim
+    | claimRepetition hr => exact (hnr hr).elim
+    | claimNoProgress hnp' => exact (hnp hnp').elim
+  · intro h
+    rcases h with hc | hs | hf | h75 | hd
+    · exact .checkmate m hp hc
+    · exact .stalemate m hp hs
+    · exact .fivefold m hp hf
+    · exact .seventyFive m hp h75
+    · exact .deadPosition m hp hd
+
+/-- Playing `m` ends the game exactly when the resulting position is
+checkmate or stalemate, the move is fivefold or the 75-move rule, or
+the resulting position is dead. -/
+theorem EndsGame_move_iff (g : GameState) (m : Move) :
+    EndsGame g (.move m) ↔
+      InCheckmate (g.current.play m) ∨
+      InStalemate (g.current.play m) ∨
+      AppearsFivefoldAfter g m ∨
+      LeadsToSeventyFiveMove g m ∨
+      DeadPosition (g.current.play m) :=
+  EndsGame_iff_of_plays g (Action.plays_move m)
+    (Action.not_claimsRepetition_move m) (Action.not_claimsNoProgress_move m)
+
+/-- Offering a draw with `m` ends the game on the same conditions as
+playing `m` alone. -/
+theorem EndsGame_moveAndProposeDraw_iff (g : GameState) (m : Move) :
+    EndsGame g (.moveAndProposeDraw m) ↔
+      InCheckmate (g.current.play m) ∨
+      InStalemate (g.current.play m) ∨
+      AppearsFivefoldAfter g m ∨
+      LeadsToSeventyFiveMove g m ∨
+      DeadPosition (g.current.play m) :=
+  EndsGame_iff_of_plays g (Action.plays_moveAndProposeDraw m)
+    (Action.not_claimsRepetition_moveAndProposeDraw m)
+    (Action.not_claimsNoProgress_moveAndProposeDraw m)
+
 /-! ### Ordinary moves that do not end the game -/
 
 /-- White's first move does not checkmate. -/
