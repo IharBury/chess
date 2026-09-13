@@ -30,6 +30,7 @@ import Chess.LoneKingMaterial
 import Chess.LoneKingTheorems
 import Chess.Decide
 import Chess.DecideTheorems
+import Chess.EndsGameTheorems
 import Chess.FinishedGame
 
 /-!
@@ -59,6 +60,7 @@ without circular imports:
 * `Chess.GameState` — current position, historical positions, and a pending draw offer
 * `Chess.Action` — legal actions of the player to move in an unfinished game
 * `Chess.EndsGame` — whether an action ends the game
+* `Chess.EndsGameTheorems` — `EndsGame` is decidable when a played move leaves a valid position
 * `Chess.KingBishops` — king and bishop versus king and bishop: checkmate is reachable exactly with
   opposite-color bishops
 * `Chess.KingKnights` — king and knight versus king and knight: checkmate is reachable by an
@@ -88,6 +90,10 @@ without circular imports:
   (kings and bishops all on one square-color) is dead; remaining positions are explored like
   `LoneKing.explore`. `Position.checkmateVerdict` is correct for every valid position
   (`checkmateVerdict_iff` in `Chess.DecideTheorems`), so `Position.checkmateReachableDecidable`
-  is a `Decidable (CheckmateReachable p)` from `Valid p` alone
+  is a `Decidable (CheckmateReachable p)` from `Valid p` alone. `DeadPosition` is the
+  negation, so `Position.deadPositionDecidable` decides it from the same hypothesis
+* `Chess.EndsGameTheorems` — `GameState.endsGame` matches `EndsGame` when every move
+  the action plays leaves a valid position (`endsGame_eq_true_iff`), so
+  `GameState.endsGameDecidable` is a `Decidable (EndsGame g a)` from that hypothesis
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 -/
