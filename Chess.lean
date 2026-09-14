@@ -32,6 +32,7 @@ import Chess.Decide
 import Chess.DecideTheorems
 import Chess.EndsGameTheorems
 import Chess.FinishedGame
+import Chess.ValidPlay
 import Chess.Play
 import Chess.Judgement
 
@@ -98,8 +99,11 @@ without circular imports:
   the action plays leaves a valid position (`endsGame_eq_true_iff`), so
   `GameState.endsGameDecidable` is a `Decidable (EndsGame g a)` from that hypothesis
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
-* `Chess.Play` — carrying out an action: `GameState.after` returns the next unfinished
-  game, or a finished game when the action ends play
+* `Chess.ValidPlay` — a legal move from a valid position yields a valid
+  position (`Position.valid_play`)
+* `Chess.Play` — carrying out a legal action in a valid game:
+  `GameState.after` returns the next unfinished game, or a finished game
+  when the action ends play
 * `Chess.Judgement` — the judgement of an unfinished game under optimal play:
   White is winning, nobody is winning, or Black is winning
 -/

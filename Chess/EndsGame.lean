@@ -349,13 +349,13 @@ theorem starting_surrender_endsGame : EndsGame starting .surrender :=
 
 /-! ### Checkmate -/
 
-/-- White to move, queen on `h4`, king on `g6`, black king on `h8`:
+/-- White to move, queen on `e7`, king on `g6`, black king on `h8`:
 `Qh7` is mate. -/
 def beforeQueenMate : Position where
   board := fun s =>
     if s = Square.g6 then some { color := .white, kind := .king }
     else if s = Square.h8 then some { color := .black, kind := .king }
-    else if s = Square.h4 then some { color := .white, kind := .queen }
+    else if s = Square.e7 then some { color := .white, kind := .queen }
     else none
   toMove := .white
   castling := CastlingRights.empty
@@ -367,13 +367,13 @@ def beforeQueenMateGame : GameState where
   drawProposed := false
 
 theorem beforeQueenMate_qh7_inCheckmate :
-    InCheckmate (beforeQueenMate.play (Move.std Square.h4 Square.h7)) := by
+    InCheckmate (beforeQueenMate.play (Move.std Square.e7 Square.h7)) := by
   native_decide
 
 /-- Playing `Qh7` from `beforeQueenMate` ends the game by checkmate. -/
 theorem beforeQueenMate_qh7_endsGame :
     EndsGame beforeQueenMateGame
-      (Action.move (Move.std Square.h4 Square.h7)) :=
+      (Action.move (Move.std Square.e7 Square.h7)) :=
   .checkmate _ (by rfl) beforeQueenMate_qh7_inCheckmate
 
 /-! ### Stalemate -/

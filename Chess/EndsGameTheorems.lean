@@ -147,18 +147,18 @@ theorem starting_claimRepetition_decide :
   native_decide
 
 theorem beforeQueenMate_qh7_play_isValid :
-    isValid (beforeQueenMate.play (Move.std Square.h4 Square.h7)) = true := by
+    isValid (beforeQueenMate.play (Move.std Square.e7 Square.h7)) = true := by
   native_decide
 
 theorem beforeQueenMate_qh7_decide :
-    @decide (EndsGame beforeQueenMateGame (Action.move (Move.std Square.h4 Square.h7)))
+    @decide (EndsGame beforeQueenMateGame (Action.move (Move.std Square.e7 Square.h7)))
       (endsGameDecidable beforeQueenMateGame _
         ((isValid_eq_true_iff _).mp beforeQueenMate_qh7_play_isValid)) = true := by
   native_decide
 
 theorem beforeQueenMate_qh7_proposeDraw_decide :
     @decide (EndsGame beforeQueenMateGame
-        (Action.moveAndProposeDraw (Move.std Square.h4 Square.h7)))
+        (Action.moveAndProposeDraw (Move.std Square.e7 Square.h7)))
       (endsGameDecidable beforeQueenMateGame _
         (endsGameHyp_moveAndProposeDraw _ _
           ((isValid_eq_true_iff _).mp beforeQueenMate_qh7_play_isValid))) = true := by

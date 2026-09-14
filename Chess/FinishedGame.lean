@@ -603,16 +603,16 @@ theorem kingsOnly_99_moveAndClaimNoProgress_ofAction_positions :
 mating position is the last recorded position. -/
 theorem beforeQueenMate_qh7_ofAction_outcome :
     (ofAction beforeQueenMateGame
-      (Action.move (Move.std Square.h4 Square.h7))
+      (Action.move (Move.std Square.e7 Square.h7))
       beforeQueenMate_qh7_endsGame).outcome = .win .white := by
   native_decide
 
 theorem beforeQueenMate_qh7_ofAction_positions :
     (ofAction beforeQueenMateGame
-      (Action.move (Move.std Square.h4 Square.h7))
+      (Action.move (Move.std Square.e7 Square.h7))
       beforeQueenMate_qh7_endsGame).positions =
       [beforeQueenMate,
-        beforeQueenMate.play (Move.std Square.h4 Square.h7)] :=
+        beforeQueenMate.play (Move.std Square.e7 Square.h7)] :=
   rfl
 
 /-- Playing `a6–a7` from `beforeStalemate` is a draw. -/

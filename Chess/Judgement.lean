@@ -248,7 +248,7 @@ theorem not_CanForceWin_other_of_isTwoKings {g : GameState} {a : Action}
 /-- White's `Qh7` is a legal action from `beforeQueenMate`. -/
 theorem beforeQueenMate_qh7_legal :
     LegalAction beforeQueenMateGame
-      (Action.move (Move.std Square.h4 Square.h7)) := by
+      (Action.move (Move.std Square.e7 Square.h7)) := by
   native_decide
 
 /-- From the queen-and-king mate in one, White is winning: `Qh7` mates. -/
