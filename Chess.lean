@@ -105,5 +105,7 @@ without circular imports:
   `GameState.after` returns the next unfinished game, or a finished game
   when the action ends play
 * `Chess.Judgement` — the judgement of an unfinished game under optimal play:
-  White is winning, nobody is winning, or Black is winning
+  White is winning, nobody is winning, or Black is winning. In a valid
+  game, `GameState.GoodAction` is a legal action that continues to a
+  game with the same judgement or finishes with a matching outcome
 -/

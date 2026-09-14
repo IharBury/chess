@@ -75,7 +75,7 @@ CI runs the same `lake build` via [lean-action](https://github.com/leanprover/le
 | `Chess.EndsGameTheorems` | `GameState.endsGameDecidable` decides `EndsGame` from a valid game and a legal action |
 | `Chess.FinishedGame` | Completed games: positions, declarations, technical ends, and outcomes; finishing by an ending action |
 | `Chess.Play` | Playing an action: the next game state, or a completed game |
-| `Chess.Judgement` | Judgement of a game state under optimal play: White is winning, nobody is winning, or Black is winning |
+| `Chess.Judgement` | Judgement of a game state under optimal play: White is winning, nobody is winning, or Black is winning; a good action in a valid game is legal and either continues with the same judgement or finishes with a matching outcome |
 
 Import the whole library with `import Chess`, or import a single module.
 
@@ -112,6 +112,7 @@ Sample facts already in the library:
 * `FinishedGame.ofAction` turns an unfinished game and an ending action into that record: resignation at the start is a win for Black; a mating move is a win for the player who moved; accepting a draw, a repetition or fifty-move claim, stalemate, a dead position, fivefold repetition, and the 75-move rule are draws
 * `GameState.after` carries out a legal action in a valid game: White's `e2–e4` at the start continues as the game after `1. e4`; resignation at the start finishes as a win for Black; after `1. e4`, Black playing `e7–e5` and offering a draw continues with that offer pending; a mating move, accepting a draw, a repetition or fifty-move claim, stalemate, a dead position, fivefold repetition, and the 75-move rule finish the game
 * the judgement of a game under optimal play (`GameState.Judgement`) is a win for White, a draw (nobody is winning), or a win for Black: White is winning when they can force a win against any replies (`CanForceWin`), and nobody is winning when neither player can. From `beforeQueenMate`, White is winning (`Qh7` mates); from a back-rank mate in one, Black is winning (`Ra1` mates); with only two kings, nobody is winning
+* a good action in a valid game (`GameState.GoodAction`) is legal and either continues to a game with the same judgement or finishes with an outcome matching that judgement: `Qh7` from `beforeQueenMate` and `Ra1` from the back-rank mate in one are good (they mate); a king move with only two kings is good (it draws by a dead position)
 * White's win, Black's win, and a draw are three distinct outcomes
 * bishops stay on one square-color; knights always change square-color
 * a knight on `a1` attacks exactly `b3` and `c2`
