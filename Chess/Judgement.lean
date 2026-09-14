@@ -14,6 +14,10 @@ ends the game as a win for `c`, or continues to a state from which `c`
 can still force a win; and when it is the opponent's turn, every legal
 action still leaves `c` able to force a win. Nobody is winning when
 neither player can force a win.
+
+In a valid game, a good action is a legal action that preserves that
+judgement: it continues to a game with the same judgement, or finishes
+with a matching outcome.
 -/
 
 namespace Chess
@@ -83,6 +87,67 @@ theorem Judgement_win_black (g : GameState) :
 theorem Judgement_draw (g : GameState) :
     Judgement g .draw ↔ NobodyWinning g :=
   Iff.rfl
+
+/-! ### Good actions -/
+
+/-- An action `a` is good in `g` when it is legal and either continues
+to a game with the same judgement or finishes with an outcome matching
+that judgement. -/
+def GoodAction (g : GameState) (a : Action) : Prop :=
+  LegalAction g a ∧
+    ((¬ EndsGame g a ∧ ∀ o, Judgement g o → Judgement (continueAfter g a) o) ∨
+      (EndsGame g a ∧ Judgement g (endingOutcome g a)))
+
+/-- A good action is legal. -/
+theorem GoodAction.legal {g : GameState} {a : Action}
+    (h : GoodAction g a) : LegalAction g a :=
+  h.1
+
+/-- A legal action that does not end the game, and whose next state has
+the same judgement. -/
+theorem GoodAction.proceed {g : GameState} {a : Action}
+    (ha : LegalAction g a) (h : ¬ EndsGame g a)
+    (hj : ∀ o, Judgement g o → Judgement (continueAfter g a) o) :
+    GoodAction g a :=
+  ⟨ha, Or.inl ⟨h, hj⟩⟩
+
+/-- A legal action that ends the game with an outcome matching the
+judgement of `g`. -/
+theorem GoodAction.finish {g : GameState} {a : Action}
+    (ha : LegalAction g a) (h : EndsGame g a)
+    (hj : Judgement g (endingOutcome g a)) :
+    GoodAction g a :=
+  ⟨ha, Or.inr ⟨h, hj⟩⟩
+
+/-- The result of playing an action in `g` preserves `g`'s judgement
+when a continuing game has that judgement, or a finished game has a
+matching outcome. -/
+def PreservesJudgement (g : GameState) : AfterAction → Prop
+  | .continuing g' => ∀ o, Judgement g o → Judgement g' o
+  | .finished fg => Judgement g fg.outcome
+
+/-- In a valid game, a legal action is good iff playing it with `after`
+preserves the judgement. -/
+theorem GoodAction_iff_preserves {g : GameState} {a : Action}
+    (hg : Valid g.current) (ha : LegalAction g a) :
+    GoodAction g a ↔ PreservesJudgement g (after g a hg ha) := by
+  constructor
+  · intro ⟨_, h⟩
+    rcases h with ⟨hcont, hj⟩ | ⟨hend, hj⟩
+    · rw [after_eq_continuing g a hcont hg ha]
+      exact hj
+    · rw [after_eq_finished g a hend hg ha]
+      change Judgement g (ofAction g a hend).outcome
+      rwa [ofAction_outcome]
+  · intro hp
+    have : Decidable (EndsGame g a) := endsGameDecidable g a hg ha
+    by_cases hend : EndsGame g a
+    · refine GoodAction.finish ha hend ?_
+      rw [after_eq_finished g a hend hg ha] at hp
+      change Judgement g (ofAction g a hend).outcome at hp
+      rwa [ofAction_outcome] at hp
+    · refine GoodAction.proceed ha hend ?_
+      rwa [after_eq_continuing g a hend hg ha] at hp
 
 /-- A mating move is a win for the player who moved. -/
 theorem endingOutcome_move_of_inCheckmate (g : GameState) (m : Move)
@@ -331,6 +396,51 @@ theorem kingsOnly_nobodyWinning : NobodyWinning kingsOnlyGame :=
 
 theorem kingsOnly_judgement : Judgement kingsOnlyGame .draw :=
   kingsOnly_nobodyWinning
+
+/-! ### Good-action examples -/
+
+/-- Playing `Qh7` from `beforeQueenMate` is good: it mates, matching
+White's winning judgement. -/
+theorem beforeQueenMate_qh7_endingOutcome :
+    endingOutcome beforeQueenMateGame
+      (Action.move (Move.std Square.e7 Square.h7)) = .win .white :=
+  endingOutcome_move_of_inCheckmate _ _ beforeQueenMate_qh7_inCheckmate
+
+theorem beforeQueenMate_qh7_goodAction :
+    GoodAction beforeQueenMateGame
+      (Action.move (Move.std Square.e7 Square.h7)) := by
+  refine GoodAction.finish beforeQueenMate_qh7_legal
+    beforeQueenMate_qh7_endsGame ?_
+  rw [beforeQueenMate_qh7_endingOutcome]
+  exact beforeQueenMate_judgement
+
+theorem beforeBackRankMate_ra1_endsGame :
+    EndsGame beforeBackRankMateGame
+      (Action.move (Move.std Square.a2 Square.a1)) :=
+  .checkmate _ (Action.plays_move _) beforeBackRankMate_ra1_inCheckmate
+
+theorem beforeBackRankMate_ra1_endingOutcome :
+    endingOutcome beforeBackRankMateGame
+      (Action.move (Move.std Square.a2 Square.a1)) = .win .black :=
+  endingOutcome_move_of_inCheckmate _ _ beforeBackRankMate_ra1_inCheckmate
+
+/-- Playing `Ra1` from the back-rank mate in one is good: it mates,
+matching Black's winning judgement. -/
+theorem beforeBackRankMate_ra1_goodAction :
+    GoodAction beforeBackRankMateGame
+      (Action.move (Move.std Square.a2 Square.a1)) := by
+  refine GoodAction.finish beforeBackRankMate_ra1_legal
+    beforeBackRankMate_ra1_endsGame ?_
+  rw [beforeBackRankMate_ra1_endingOutcome]
+  exact beforeBackRankMate_judgement
+
+/-- A king move with only two kings is good: it draws by a dead
+position, matching that nobody is winning. -/
+theorem kingsOnly_e1d1_goodAction :
+    GoodAction kingsOnlyGame (Action.move (Move.std Square.e1 Square.d1)) := by
+  refine GoodAction.finish kingsOnly_e1d1_LegalAction kingsOnly_e1d1_endsGame ?_
+  rw [kingsOnly_e1d1_endingOutcome]
+  exact kingsOnly_judgement
 
 end GameState
 
