@@ -17,9 +17,8 @@ player.
 
 Legality of the play, and consistency of the outcome with the positions
 and declarations (checkmate, stalemate, a well-founded repetition claim,
-flag fall, ...), are not checked here. `FinishedGame.ofActionRecord`
-assembles the record of carrying out an action; `FinishedGame.ofAction`
-is that record when the action ends the game (`EndsGame`).
+flag fall, ...), are not checked here. `FinishedGame.ofAction` assembles
+a finished game from an unfinished state and an action that ends it.
 -/
 
 namespace Chess
@@ -470,18 +469,6 @@ def drawProposalsAfter (g : GameState) (a : Action) : List DrawProposal :=
   else
     pending
 
-/-- The finished-game record of carrying out `a`. Whether `a` ends the
-game is not required; `ofAction` is this record together with that
-hypothesis. -/
-def ofActionRecord (g : GameState) (a : Action) : FinishedGame where
-  positions := positionsAfter g a
-  claimedDrawByRepetition := a.claimsRepetition
-  resigned := a.surrenders
-  drawProposals := drawProposalsAfter g a
-  acceptedDraw := a.acceptsDraw
-  technical := none
-  outcome := endingOutcome g a
-
 /-- Assemble a finished game from the unfinished game `g` by carrying out
 `a`, given that `a` ends the game.
 
@@ -489,34 +476,14 @@ Positions include the resulting position when `a` plays a move.
 Declarations follow the action (resignation, a repetition claim,
 acceptance, a new draw offer). Player actions are not a technical
 termination. The outcome is `endingOutcome`. -/
-def ofAction (g : GameState) (a : Action) (_h : EndsGame g a) : FinishedGame :=
-  ofActionRecord g a
-
-@[simp] theorem ofActionRecord_positions (g : GameState) (a : Action) :
-    (ofActionRecord g a).positions = positionsAfter g a := rfl
-
-@[simp] theorem ofActionRecord_claimedDrawByRepetition (g : GameState)
-    (a : Action) :
-    (ofActionRecord g a).claimedDrawByRepetition = a.claimsRepetition := rfl
-
-@[simp] theorem ofActionRecord_resigned (g : GameState) (a : Action) :
-    (ofActionRecord g a).resigned = a.surrenders := rfl
-
-@[simp] theorem ofActionRecord_drawProposals (g : GameState) (a : Action) :
-    (ofActionRecord g a).drawProposals = drawProposalsAfter g a := rfl
-
-@[simp] theorem ofActionRecord_acceptedDraw (g : GameState) (a : Action) :
-    (ofActionRecord g a).acceptedDraw = a.acceptsDraw := rfl
-
-@[simp] theorem ofActionRecord_technical (g : GameState) (a : Action) :
-    (ofActionRecord g a).technical = none := rfl
-
-@[simp] theorem ofActionRecord_outcome (g : GameState) (a : Action) :
-    (ofActionRecord g a).outcome = endingOutcome g a := rfl
-
-theorem ofAction_eq_ofActionRecord (g : GameState) (a : Action)
-    (h : EndsGame g a) :
-    ofAction g a h = ofActionRecord g a := rfl
+def ofAction (g : GameState) (a : Action) (_h : EndsGame g a) : FinishedGame where
+  positions := positionsAfter g a
+  claimedDrawByRepetition := a.claimsRepetition
+  resigned := a.surrenders
+  drawProposals := drawProposalsAfter g a
+  acceptedDraw := a.acceptsDraw
+  technical := none
+  outcome := endingOutcome g a
 
 @[simp] theorem ofAction_positions (g : GameState) (a : Action)
     (h : EndsGame g a) :
