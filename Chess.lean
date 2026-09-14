@@ -33,6 +33,7 @@ import Chess.DecideTheorems
 import Chess.EndsGameTheorems
 import Chess.FinishedGame
 import Chess.Play
+import Chess.Judgement
 
 /-!
 # Chess
@@ -99,4 +100,6 @@ without circular imports:
 * `Chess.FinishedGame` — completed games, and `ofAction` to finish by an ending action
 * `Chess.Play` — carrying out an action: `GameState.after` returns the next unfinished
   game, or a finished game when the action ends play
+* `Chess.Judgement` — the judgement of an unfinished game under optimal play:
+  White is winning, nobody is winning, or Black is winning
 -/
