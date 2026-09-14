@@ -385,6 +385,18 @@ theorem after_afterE2e4_e7e5_proposeDraw :
   rw [after_eq_continuing _ _ afterE2e4_e7e5_proposeDraw_not_endsGame]
   simp [afterE2e4e7e5Offer, afterE2e4]
 
+/-- Continuing after a pinned two-square pawn jump records no en passant
+target (FIDE Article 9.2.2.1). -/
+def beforePinnedEnPassantGame : GameState where
+  current := beforePinnedEnPassant
+  history := []
+  drawProposed := false
+
+theorem continueAfter_beforePinnedEnPassant_e7e5 :
+    (continueAfter beforePinnedEnPassantGame
+      (.move (Move.std Square.e7 Square.e5))).current.enPassant = none := by
+  native_decide
+
 end GameState
 
 end Chess

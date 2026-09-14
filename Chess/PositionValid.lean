@@ -10,7 +10,7 @@ A position is valid when the placement is a valid board, the king of
 the player who is not to move is not under attack, every remaining
 castling privilege has its king and rook on their starting squares, and
 an en passant target (if any) is consistent with a two-square pawn
-advance that the current player can capture.
+advance that the current player can legally capture (FIDE 9.2.2.1).
 -/
 
 namespace Chess
@@ -52,19 +52,71 @@ theorem existsPawnAttacking_iff (b : Board) (c : Color) (t : Square) :
       ∃ s : Square, hasPawn b c s = true ∧ PawnAttacks c s t := by
   simp [existsPawnAttacking, pawnAttacksFrom, Bool.and_eq_true, decide_eq_true_eq]
 
+/-- Board after `c` captures en passant from `src` onto `t`. -/
+def enPassantCaptureBoard (b : Board) (c : Color) (src t : Square) : Board :=
+  (b.relocate src t { color := c, kind := .pawn }).clear ⟨t.file, src.rank⟩
+
+/-- Whether capturing en passant from `src` onto `t` would not leave
+`c`'s king in check. -/
+def enPassantCaptureSafe (b : Board) (c : Color) (src t : Square) : Bool :=
+  !(enPassantCaptureBoard b c src t).kingIsAttacked c
+
+/-- Whether some pawn of `c` can legally capture en passant on `t`
+(FIDE Article 9.2.2.1).
+
+The target must be empty, a pawn of `c` must attack it, and the capture
+must not leave `c`'s king in check. A pinned capturing pawn, or a
+capture that fails to get out of check, does not count. -/
+def existsLegalEnPassantCapture (b : Board) (c : Color) (t : Square) : Bool :=
+  (b t).isNone &&
+    decide (∃ s : Square,
+      pawnAttacksFrom b c s t = true ∧
+        enPassantCaptureSafe b c s t = true)
+
+theorem existsLegalEnPassantCapture_iff (b : Board) (c : Color) (t : Square) :
+    existsLegalEnPassantCapture b c t = true ↔
+      (b t).isNone = true ∧
+        ∃ s : Square,
+          pawnAttacksFrom b c s t = true ∧
+            enPassantCaptureSafe b c s t = true := by
+  simp [existsLegalEnPassantCapture, Bool.and_eq_true]
+
+/-- A legal en passant capture requires a geometrically attacking pawn. -/
+theorem existsPawnAttacking_of_existsLegalEnPassantCapture
+    {b : Board} {c : Color} {t : Square}
+    (h : existsLegalEnPassantCapture b c t = true) :
+    existsPawnAttacking b c t = true := by
+  obtain ⟨_, s, hs, _⟩ := (existsLegalEnPassantCapture_iff b c t).mp h
+  refine (existsPawnAttacking_iff b c t).mpr ⟨s, ?_⟩
+  simp only [pawnAttacksFrom, Bool.and_eq_true, decide_eq_true_eq] at hs
+  exact hs
+
+/-- If no pawn of `c` attacks `t`, no legal en passant capture exists. -/
+theorem existsLegalEnPassantCapture_eq_false_of_not_attacking
+    {b : Board} {c : Color} {t : Square}
+    (h : existsPawnAttacking b c t = false) :
+    existsLegalEnPassantCapture b c t = false := by
+  cases h' : existsLegalEnPassantCapture b c t with
+  | false => rfl
+  | true =>
+    have hatt : existsPawnAttacking b c t = true :=
+      existsPawnAttacking_of_existsLegalEnPassantCapture h'
+    rw [h] at hatt
+    cases hatt
+
 /-- Consistency of the en passant field with a two-square advance.
 
 `none` is always consistent. A target square `ep` is consistent when it
 is the square a pawn of the opponent could pass over, that pawn occupies
-the landing square of the jump, and a pawn of the player to move
-attacks `ep`. -/
+the landing square of the jump, and a pawn of the player to move can
+legally capture on `ep` (FIDE Article 9.2.2.1). -/
 def enPassantOk (p : Position) : Bool :=
   match p.enPassant with
   | none => true
   | some ep =>
     (ep.rank == pawnJumpOverRank p.toMove.other) &&
     hasPawn p.board p.toMove.other (pawnJumpLanding p.toMove.other ep) &&
-    existsPawnAttacking p.board p.toMove ep
+    existsLegalEnPassantCapture p.board p.toMove ep
 
 /-- Whether `p` is a valid position.
 
@@ -73,7 +125,8 @@ def enPassantOk (p : Position) : Bool :=
 * for each castling right, the king and rook stand on their starting squares
 * if there is an en passant target, it is a square a pawn of the opponent
   could jump over, that pawn occupies the landing square of the jump, and
-  a pawn of the player to move can capture on the target square -/
+  a pawn of the player to move can legally capture on the target square
+  (FIDE Article 9.2.2.1) -/
 def isValid (p : Position) : Bool :=
   p.board.isValid &&
   !p.board.kingIsAttacked p.toMove.other &&
@@ -105,7 +158,7 @@ theorem enPassantOk_some (p : Position) (ep : Square) (h : p.enPassant = some ep
     p.enPassantOk = true ↔
       ep.rank = pawnJumpOverRank p.toMove.other ∧
         hasPawn p.board p.toMove.other (pawnJumpLanding p.toMove.other ep) = true ∧
-        existsPawnAttacking p.board p.toMove ep = true := by
+        existsLegalEnPassantCapture p.board p.toMove ep = true := by
   simp [enPassantOk, h, Bool.and_eq_true, and_assoc]
 
 instance {p : Position} : Decidable (Valid p) := by
@@ -142,7 +195,8 @@ theorem valid_enPassant (p : Position) (h : Valid p) :
   | some ep =>
     obtain ⟨hrank, hpawn, hcap⟩ := (enPassantOk_some p ep hep).mp h.2.2.2
     refine ⟨hrank, (hasPawn_eq_true_iff _ _ _).mp hpawn, ?_⟩
-    obtain ⟨s, hs⟩ := (existsPawnAttacking_iff _ _ _).mp hcap
+    obtain ⟨s, hs⟩ := (existsPawnAttacking_iff _ _ _).mp
+      (existsPawnAttacking_of_existsLegalEnPassantCapture hcap)
     exact ⟨s, (hasPawn_eq_true_iff _ _ _).mp hs.1, hs.2⟩
 
 /-- The opponent of the player to move is not in check at the start. -/
@@ -305,6 +359,36 @@ def enPassantNoCapture : Position where
   enPassant := some Square.e6
 
 theorem enPassantNoCapture_not_valid : isValid enPassantNoCapture = false := by
+  native_decide
+
+/-- White's king stands on `d1`, so the pawn on `d5` is pinned by a rook
+on `d8`. `d5×e6` en passant would leave the king in check and is not a
+legal move. Recording the target is inconsistent with FIDE Article
+9.2.2.1. -/
+def pinnedEnPassantBoard : Board := fun s =>
+  if s = Square.d1 then some { color := .white, kind := .king }
+  else if s = Square.e8 then some { color := .black, kind := .king }
+  else if s = Square.e5 then some { color := .black, kind := .pawn }
+  else if s = Square.d5 then some { color := .white, kind := .pawn }
+  else if s = Square.d8 then some { color := .black, kind := .rook }
+  else none
+
+def pinnedEnPassant : Position where
+  board := pinnedEnPassantBoard
+  toMove := .white
+  castling := CastlingRights.empty
+  enPassant := some Square.e6
+
+theorem pinnedEnPassant_not_valid : isValid pinnedEnPassant = false := by
+  native_decide
+
+/-- The same placement without an en passant target is valid: the sets
+of legal moves match a position in which no pawn could have been
+captured en passant. -/
+def pinnedEnPassantNone : Position :=
+  { pinnedEnPassant with enPassant := none }
+
+theorem pinnedEnPassantNone_isValid : isValid pinnedEnPassantNone = true := by
   native_decide
 
 /-- Black to move can capture en passant on `e3` after White's `e2–e4`. -/

@@ -382,9 +382,7 @@ theorem enPassantAfter_pawn_no_enemy (m : Move) (c : Color) (b : Board)
       ⟨m.src.file, pawnJumpOverRank c⟩ = false) :
     enPassantAfter m { color := c, kind := .pawn } b = none := by
   unfold enPassantAfter
-  split_ifs with hcond
-  · simp [h]
-  · rfl
+  simp [existsLegalEnPassantCapture_eq_false_of_not_attacking h]
 
 theorem some_pawn_ne_king {c₁ c₂ : Color}
     (h : (some { color := c₁, kind := .pawn } : Option Piece) =

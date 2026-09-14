@@ -129,14 +129,17 @@ def castlingAfter (castling : CastlingRights) (b : Board) : CastlingRights :=
       b r.rookSquare = some { color := r.color, kind := .rook }
 
 /-- En passant target after a move of `piece`, if a two-square pawn
-advance left a capturable target. -/
+advance left a legal capture (FIDE Article 9.2.2.1).
+
+A geometrically attacking pawn is not enough: the capture must not
+leave the king in check. -/
 def enPassantAfter (m : Move) (piece : Piece) (b : Board) : Option Square :=
   if piece.kind == .pawn &&
       m.src.file == m.dst.file &&
       m.src.rank == pawnStartRank piece.color &&
       m.dst.rank == pawnJumpToRank piece.color then
     let ep : Square := ⟨m.src.file, pawnJumpOverRank piece.color⟩
-    if existsPawnAttacking b piece.color.other ep then some ep else none
+    if existsLegalEnPassantCapture b piece.color.other ep then some ep else none
   else
     none
 
@@ -144,8 +147,8 @@ def enPassantAfter (m : Move) (piece : Piece) (b : Board) : Option Square :=
 
 Castling rights that no longer have king and rook at home are dropped.
 An en passant target is recorded only when a two-square pawn advance
-left a pawn of the new player to move able to capture it. Legality of
-`m` is not checked. -/
+left a legal capture for the new player to move (FIDE Article 9.2.2.1).
+Legality of `m` is not checked. -/
 def play (p : Position) (m : Move) : Position :=
   match p.board m.src with
   | none => { p with toMove := p.toMove.other }
@@ -378,6 +381,65 @@ theorem withEnPassant_play :
       p.board Square.e5 = none ∧
       p.board Square.d5 = none ∧
       p.enPassant = none := by
+  native_decide
+
+/-- `d5×e6` is illegal in `pinnedEnPassant`: the pawn is pinned. -/
+theorem pinnedEnPassant_capture_not_legal :
+    isLegalMove pinnedEnPassant (Move.std Square.d5 Square.e6) = false := by
+  native_decide
+
+/-- Black to move, pawn on `e7`, White's king on `d1` and `d5` pawn
+pinned by a rook on `d8`. After `e7–e5` no en passant target is
+recorded: capturing on `e6` would leave White in check (FIDE Article
+9.2.2.1). -/
+def beforePinnedEnPassant : Position where
+  board := fun s =>
+    if s = Square.d1 then some { color := .white, kind := .king }
+    else if s = Square.e8 then some { color := .black, kind := .king }
+    else if s = Square.e7 then some { color := .black, kind := .pawn }
+    else if s = Square.d5 then some { color := .white, kind := .pawn }
+    else if s = Square.d8 then some { color := .black, kind := .rook }
+    else none
+  toMove := .black
+  castling := CastlingRights.empty
+  enPassant := none
+
+theorem beforePinnedEnPassant_isValid : isValid beforePinnedEnPassant = true := by
+  native_decide
+
+theorem beforePinnedEnPassant_e7e5_legal :
+    isLegalMove beforePinnedEnPassant (Move.std Square.e7 Square.e5) = true := by
+  native_decide
+
+/-- After the pinned two-square jump, no en passant target is recorded:
+capturing on `e6` would leave White in check (FIDE Article 9.2.2.1). -/
+theorem beforePinnedEnPassant_play_e7e5 :
+    let p := beforePinnedEnPassant.play (Move.std Square.e7 Square.e5)
+    p.enPassant = none ∧
+      p.toMove = Color.white ∧
+      p.board Square.e5 = some { color := .black, kind := .pawn } ∧
+      p.board Square.e7 = none ∧
+      isValid p = true := by
+  native_decide
+
+/-- The same two-square jump with no pin records the en passant target. -/
+def beforeUnpinnedEnPassant : Position where
+  board := fun s =>
+    if s = Square.e1 then some { color := .white, kind := .king }
+    else if s = Square.e8 then some { color := .black, kind := .king }
+    else if s = Square.e7 then some { color := .black, kind := .pawn }
+    else if s = Square.d5 then some { color := .white, kind := .pawn }
+    else none
+  toMove := .black
+  castling := CastlingRights.empty
+  enPassant := none
+
+theorem beforeUnpinnedEnPassant_play_e7e5 :
+    let p := beforeUnpinnedEnPassant.play (Move.std Square.e7 Square.e5)
+    p.enPassant = some Square.e6 ∧
+      p.toMove = Color.white ∧
+      isValid p = true ∧
+      isLegalMove p (Move.std Square.d5 Square.e6) = true := by
   native_decide
 
 /-- Kings and both sides' rooks on their starting squares, otherwise
