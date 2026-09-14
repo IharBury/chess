@@ -425,6 +425,8 @@ theorem mem_legalActions_iff_LegalAction (g : GameState) (a : Action) :
 theorem surrender_mem (g : GameState) : Action.surrender ∈ g.legalActions := by
   simp [mem_legalActions, isLegalAction]
 
+theorem surrender_legal (g : GameState) : LegalAction g .surrender := rfl
+
 /-- A pending draw offer may be accepted; otherwise acceptance is not
 legal. -/
 theorem acceptDraw_mem (g : GameState) :

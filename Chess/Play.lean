@@ -4,11 +4,12 @@ import Chess.FinishedGame
 /-!
 # Playing an action
 
-Carrying out an action in an unfinished game either produces the next
-game state, or finishes the game. `GameState.after` is that transition:
-a move that does not end play is recorded with `GameState.advance`
-(and a draw offer, if the action proposes one); an ending action is
-recorded as `FinishedGame.ofAction`.
+Carrying out a legal action in a valid unfinished game either produces
+the next game state, or finishes the game. `GameState.after` is that
+transition: a move that does not end play is recorded with
+`GameState.advance` (and a draw offer, if the action proposes one); an
+ending action is recorded as `FinishedGame.ofAction`. The game is
+assumed valid and the action legal, so `EndsGame` is decidable.
 -/
 
 namespace Chess
@@ -135,32 +136,31 @@ theorem continueAfter_of_plays (g : GameState) {a : Action} {m : Move}
   simp [Action.Plays] at hp
   simp [continueAfter, hp]
 
-/-- Carry out `a` in the unfinished game `g`.
+/-- Carry out legal action `a` in the unfinished valid game `g`.
 
 If `a` ends the game, the result is `FinishedGame.ofAction g a`.
-Otherwise it is the next unfinished state `continueAfter g a`.
-When `a` plays a move, the resulting position must be valid so that
-`EndsGame` is decidable. Legality of `a` is not checked. -/
-def after (g : GameState) (a : Action) (hv : endsGameHyp g a) : AfterAction :=
-  match endsGameDecidable g a hv with
+Otherwise it is the next unfinished state `continueAfter g a`. -/
+def after (g : GameState) (a : Action)
+    (hg : Valid g.current) (ha : LegalAction g a) : AfterAction :=
+  match endsGameDecidable g a hg ha with
   | .isTrue h => .finished (ofAction g a h)
   | .isFalse _ => .continuing (continueAfter g a)
 
 /-- An ending action produces `ofAction`. -/
 theorem after_eq_finished (g : GameState) (a : Action)
-    (h : EndsGame g a) (hv : endsGameHyp g a) :
-    after g a hv = .finished (ofAction g a h) := by
+    (h : EndsGame g a) (hg : Valid g.current) (ha : LegalAction g a) :
+    after g a hg ha = .finished (ofAction g a h) := by
   unfold after
-  cases endsGameDecidable g a hv with
+  cases endsGameDecidable g a hg ha with
   | isTrue _ => rfl
   | isFalse hn => exact (hn h).elim
 
 /-- A non-ending action produces the next unfinished game. -/
 theorem after_eq_continuing (g : GameState) (a : Action)
-    (h : ¬ EndsGame g a) (hv : endsGameHyp g a) :
-    after g a hv = .continuing (continueAfter g a) := by
+    (h : ¬ EndsGame g a) (hg : Valid g.current) (ha : LegalAction g a) :
+    after g a hg ha = .continuing (continueAfter g a) := by
   unfold after
-  cases endsGameDecidable g a hv with
+  cases endsGameDecidable g a hg ha with
   | isTrue ht => exact (h ht).elim
   | isFalse _ => rfl
 
@@ -182,10 +182,10 @@ theorem exists_plays_of_not_EndsGame {g : GameState} {a : Action}
 
 /-- `after` finishes the game exactly when `EndsGame` holds. -/
 theorem after_isFinished_iff (g : GameState) (a : Action)
-    (hv : endsGameHyp g a) :
-    (after g a hv).isFinished = true ↔ EndsGame g a := by
+    (hg : Valid g.current) (ha : LegalAction g a) :
+    (after g a hg ha).isFinished = true ↔ EndsGame g a := by
   unfold after
-  cases endsGameDecidable g a hv with
+  cases endsGameDecidable g a hg ha with
   | isTrue h => simp [h]
   | isFalse h => simp [h]
 
@@ -195,107 +195,120 @@ theorem after_isFinished_iff (g : GameState) (a : Action)
 the position after that pawn move, with no pending draw offer. -/
 theorem after_starting_e2e4 :
     after starting (Action.move (Move.std Square.e2 Square.e4))
-        (endsGameHyp_move _ _ starting_e2e4_play_valid) =
+        starting_current_valid starting_e2e4_legalAction =
       .continuing afterE2e4 := by
   rw [after_eq_continuing _ _ starting_e2e4_not_endsGame]
   simp [afterE2e4]
 
 /-- Resigning at the start finishes the game as a win for Black. -/
 theorem after_starting_surrender :
-    after starting .surrender trivial =
+    after starting .surrender starting_current_valid (surrender_legal _) =
       .finished (ofAction starting .surrender starting_surrender_endsGame) :=
-  after_eq_finished _ _ starting_surrender_endsGame trivial
+  after_eq_finished _ _ starting_surrender_endsGame starting_current_valid
+    (surrender_legal _)
 
 theorem after_starting_surrender_isFinished :
-    (after starting .surrender trivial).isFinished = true := by
+    (after starting .surrender starting_current_valid (surrender_legal _)).isFinished =
+      true := by
   simp [after_starting_surrender]
 
 theorem after_starting_e2e4_isContinuing :
     (after starting (Action.move (Move.std Square.e2 Square.e4))
-      (endsGameHyp_move _ _ starting_e2e4_play_valid)).isContinuing = true := by
+      starting_current_valid starting_e2e4_legalAction).isContinuing = true := by
   simp [after_starting_e2e4]
 
 /-- Playing `e2–e4` and resigning from the start are different results:
 one continues, the other finishes. -/
 theorem after_starting_e2e4_ne_surrender :
     after starting (Action.move (Move.std Square.e2 Square.e4))
-        (endsGameHyp_move _ _ starting_e2e4_play_valid) ≠
-      after starting .surrender trivial := by
+        starting_current_valid starting_e2e4_legalAction ≠
+      after starting .surrender starting_current_valid (surrender_legal _) := by
   rw [after_starting_e2e4, after_starting_surrender]
   exact AfterAction.continuing_ne_finished _ _
 
 /-- Accepting a pending draw after `1. e4 e5` finishes as a drawn game. -/
 theorem after_afterE2e4e7e5Offer_acceptDraw :
-    after afterE2e4e7e5Offer .acceptDraw trivial =
+    after afterE2e4e7e5Offer .acceptDraw afterE2e4e7e5Offer_valid
+        afterE2e4e7e5Offer_acceptDraw_legal =
       .finished (ofAction afterE2e4e7e5Offer .acceptDraw
         afterE2e4e7e5Offer_acceptDraw_endsGame) :=
-  after_eq_finished _ _ afterE2e4e7e5Offer_acceptDraw_endsGame trivial
+  after_eq_finished _ _ afterE2e4e7e5Offer_acceptDraw_endsGame
+    afterE2e4e7e5Offer_valid afterE2e4e7e5Offer_acceptDraw_legal
 
 /-- Claiming threefold repetition finishes as a draw. -/
 theorem after_threefoldStarting_claimRepetition :
-    after threefoldStarting .claimRepetition trivial =
+    after threefoldStarting .claimRepetition threefoldStarting_valid
+        threefoldStarting_claimRepetition_legal =
       .finished (ofAction threefoldStarting .claimRepetition
         (claimRepetition_endsGame _)) :=
-  after_eq_finished _ _ (claimRepetition_endsGame _) trivial
+  after_eq_finished _ _ (claimRepetition_endsGame _)
+    threefoldStarting_valid threefoldStarting_claimRepetition_legal
+
+theorem kingsOnly_100_claimNoProgress_legal :
+    LegalAction (repeated kingsOnly 100) .claimNoProgress := by
+  unfold LegalAction isLegalAction
+  exact repeated_noProgress kingsOnly (Nat.le_refl noProgressPlies)
 
 /-- A fifty-move claim in a quiet two-king game finishes as a draw. -/
 theorem after_kingsOnly_100_claimNoProgress :
-    after (repeated kingsOnly 100) .claimNoProgress trivial =
+    after (repeated kingsOnly 100) .claimNoProgress kingsOnly_valid
+        kingsOnly_100_claimNoProgress_legal =
       .finished (ofAction (repeated kingsOnly 100) .claimNoProgress
         (claimNoProgress_endsGame _)) :=
-  after_eq_finished _ _ (claimNoProgress_endsGame _) trivial
+  after_eq_finished _ _ (claimNoProgress_endsGame _) kingsOnly_valid
+    kingsOnly_100_claimNoProgress_legal
 
 /-- Playing `Qh7` from `beforeQueenMate` finishes as a win for White. -/
 theorem after_beforeQueenMate_qh7 :
-    after beforeQueenMateGame (Action.move (Move.std Square.h4 Square.h7))
-        ((isValid_eq_true_iff _).mp beforeQueenMate_qh7_play_isValid) =
+    after beforeQueenMateGame (Action.move (Move.std Square.e7 Square.h7))
+        beforeQueenMate_valid beforeQueenMate_qh7_legalAction =
       .finished (ofAction beforeQueenMateGame
-        (Action.move (Move.std Square.h4 Square.h7))
+        (Action.move (Move.std Square.e7 Square.h7))
         beforeQueenMate_qh7_endsGame) :=
   after_eq_finished _ _ beforeQueenMate_qh7_endsGame
-    ((isValid_eq_true_iff _).mp beforeQueenMate_qh7_play_isValid)
+    beforeQueenMate_valid beforeQueenMate_qh7_legalAction
 
 /-- Playing `a6–a7` from `beforeStalemate` finishes as a draw. -/
 theorem after_beforeStalemate_a7 :
     after beforeStalemateGame (Action.move (Move.std Square.a6 Square.a7))
-        ((isValid_eq_true_iff _).mp beforeStalemate_a7_play_isValid) =
+        beforeStalemate_valid beforeStalemate_a7_legalAction =
       .finished (ofAction beforeStalemateGame
         (Action.move (Move.std Square.a6 Square.a7))
         beforeStalemate_a7_endsGame) :=
   after_eq_finished _ _ beforeStalemate_a7_endsGame
-    ((isValid_eq_true_iff _).mp beforeStalemate_a7_play_isValid)
+    beforeStalemate_valid beforeStalemate_a7_legalAction
 
 /-- A king move with only two kings finishes: the resulting position is
 dead. -/
 theorem after_kingsOnly_e1d1 :
     after kingsOnlyGame (Action.move (Move.std Square.e1 Square.d1))
-        ((isValid_eq_true_iff _).mp kingsOnly_e1d1_play_isValid) =
+        kingsOnly_valid (kingsOnly_e1d1_legalAction 0) =
       .finished (ofAction kingsOnlyGame
         (Action.move (Move.std Square.e1 Square.d1))
         kingsOnly_e1d1_endsGame) :=
   after_eq_finished _ _ kingsOnly_e1d1_endsGame
-    ((isValid_eq_true_iff _).mp kingsOnly_e1d1_play_isValid)
+    kingsOnly_valid (kingsOnly_e1d1_legalAction 0)
 
 /-- Playing `e2–e4` into a fifth occurrence finishes as a draw. -/
 theorem after_fivefoldBeforeE4 :
     after fivefoldBeforeE4 (Action.move (Move.std Square.e2 Square.e4))
-        ((isValid_eq_true_iff _).mp fivefoldBeforeE4_play_isValid) =
+        fivefoldBeforeE4_valid fivefoldBeforeE4_e2e4_legalAction =
       .finished (ofAction fivefoldBeforeE4
         (Action.move (Move.std Square.e2 Square.e4))
         fivefoldBeforeE4_endsGame) :=
   after_eq_finished _ _ fivefoldBeforeE4_endsGame
-    ((isValid_eq_true_iff _).mp fivefoldBeforeE4_play_isValid)
+    fivefoldBeforeE4_valid fivefoldBeforeE4_e2e4_legalAction
 
 /-- A quiet king move after 149 quiet plies finishes by the 75-move
 rule. -/
 theorem after_kingsOnly_149_e1d1 :
     after (repeated kingsOnly 149) (Action.move (Move.std Square.e1 Square.d1))
-        ((isValid_eq_true_iff _).mp kingsOnly_e1d1_play_isValid) =
+        kingsOnly_valid (kingsOnly_e1d1_legalAction 149) =
       .finished (ofAction (repeated kingsOnly 149)
         (Action.move (Move.std Square.e1 Square.d1))
         kingsOnly_149_e1d1_endsGame) :=
   after_eq_finished _ _ kingsOnly_149_e1d1_endsGame
-    ((isValid_eq_true_iff _).mp kingsOnly_e1d1_play_isValid)
+    kingsOnly_valid (kingsOnly_e1d1_legalAction 149)
 
 /-! ### Offering a draw with a move that does not end the game -/
 
@@ -357,20 +370,17 @@ theorem afterE2e4_e7e5_proposeDraw_not_endsGame :
   · exact afterE2e4_e7e5_not_seventyFive h75
   · exact afterE2e4_e7e5_not_deadPosition hd
 
-theorem afterE2e4_e7e5_play_isValid :
-    isValid (afterE2e4.current.play (Move.std Square.e7 Square.e5)) = true := by
+theorem afterE2e4_e7e5_proposeDraw_legal :
+    LegalAction afterE2e4
+      (Action.moveAndProposeDraw (Move.std Square.e7 Square.e5)) := by
   native_decide
-
-theorem afterE2e4_e7e5_play_valid :
-    Valid (afterE2e4.current.play (Move.std Square.e7 Square.e5)) :=
-  (isValid_eq_true_iff _).mp afterE2e4_e7e5_play_isValid
 
 /-- After `1. e4`, Black playing `e7–e5` and offering a draw continues
 the game with that offer pending. -/
 theorem after_afterE2e4_e7e5_proposeDraw :
     after afterE2e4
         (Action.moveAndProposeDraw (Move.std Square.e7 Square.e5))
-        (endsGameHyp_moveAndProposeDraw _ _ afterE2e4_e7e5_play_valid) =
+        afterE2e4_valid afterE2e4_e7e5_proposeDraw_legal =
       .continuing afterE2e4e7e5Offer := by
   rw [after_eq_continuing _ _ afterE2e4_e7e5_proposeDraw_not_endsGame]
   simp [afterE2e4e7e5Offer, afterE2e4]
