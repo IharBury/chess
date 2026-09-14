@@ -1318,7 +1318,8 @@ theorem isSameColorBishops_of_valid {p : Position} (hv : Valid p)
     | some ep =>
       obtain ⟨_, _, hcap⟩ :=
         (enPassantOk_some p ep hep').mp (by simpa [hep'] using hep)
-      obtain ⟨s, hs, _⟩ := (existsPawnAttacking_iff _ _ _).mp hcap
+      obtain ⟨s, hs, _⟩ := (existsPawnAttacking_iff _ _ _).mp
+        (existsPawnAttacking_of_existsLegalEnPassantCapture hcap)
       have hpawn := (hasPawn_eq_true_iff _ _ _).mp hs
       have hmem : s ∈ p.board.occupied := by
         simp [Board.mem_occupied, hpawn]

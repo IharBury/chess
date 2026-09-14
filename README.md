@@ -86,7 +86,7 @@ Sample facts already in the library:
 * the starting position has 32 pieces, 16 per side, with unique kings on `e1` and `e8`
 * the starting position is a valid board; adjacent kings (both in check) are not
 * the standard starting position is a valid position (`Position.starting_valid`): White to move, all four castling rights with king and rook at home, and no en passant
-* a position is invalid if the opponent is in check, a castling right has king or rook off their starting squares, or en passant does not match a capturable two-square pawn jump
+* a position is invalid if the opponent is in check, a castling right has king or rook off their starting squares, or en passant does not match a legal capture of a two-square pawn jump (FIDE Article 9.2.2.1: a pinned capturing pawn, or a capture that leaves the king in check, is not recorded)
 * the starting position is not in check; a rook, knight, bishop, queen, pawn, or king attack on the player to move is check; a blocked sliding ray is not
 * double check is check by two or more pieces at once (`Position.inDoubleCheck`); a single checker is not, and blocking one of two rays leaves only a single check
 * the starting position has 20 legal moves; promoting a pawn to a queen is a different move from promoting it to a rook

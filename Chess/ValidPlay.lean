@@ -574,7 +574,7 @@ theorem enPassantAfter_none_or {m : Move} {piece : Piece} {b : Board} :
         m.dst.rank = pawnJumpToRank piece.color ∧
         enPassantAfter m piece b =
           some ⟨m.src.file, pawnJumpOverRank piece.color⟩ ∧
-        existsPawnAttacking b piece.color.other
+        existsLegalEnPassantCapture b piece.color.other
           ⟨m.src.file, pawnJumpOverRank piece.color⟩ = true) := by
   unfold enPassantAfter
   dsimp

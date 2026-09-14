@@ -244,7 +244,8 @@ theorem isKingAndPawn_of_valid {p : Position} (hv : Valid p)
     | some ep =>
       obtain ⟨_, hland, hcap⟩ :=
         (enPassantOk_some p ep hep').mp (by simpa [hep'] using hep)
-      obtain ⟨s, hs, _⟩ := (existsPawnAttacking_iff _ _ _).mp hcap
+      obtain ⟨s, hs, _⟩ := (existsPawnAttacking_iff _ _ _).mp
+        (existsPawnAttacking_of_existsLegalEnPassantCapture hcap)
       have h₁ := hpawnColor _ _ ((hasPawn_eq_true_iff _ _ _).mp hs)
       have h₂ := hpawnColor _ _ ((hasPawn_eq_true_iff _ _ _).mp hland)
       rw [← h₁] at h₂

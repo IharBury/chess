@@ -252,8 +252,8 @@ def sameCastling (c₁ c₂ : CastlingRights) : Bool :=
     (c₁.allows .black .queenside == c₂.allows .black .queenside)
 
 /-- Whether `p` and `q` are the same position for repetition
-(FIDE Article 9.2): placement, side to move, castling rights, and en
-passant. -/
+(FIDE Article 9.2): placement, side to move, remaining castling rights,
+and whether an en passant capture is a legal move. -/
 def samePosition (p q : Position) : Bool :=
   sameBoard p.board q.board &&
     (p.toMove == q.toMove) &&

@@ -201,7 +201,9 @@ structure Position where
 
   This is the square a capturing pawn would occupy — the square passed
   over by a pawn that has just advanced two squares (FIDE 3.7.4.1). It is
-  `none` when no such advance has just occurred. -/
+  `none` when no such advance has just occurred, and also when capturing
+  that pawn would not be a legal move (FIDE Article 9.2.2.1: positions
+  are the same unless a pawn could have been captured en passant). -/
   enPassant : Option Square
 deriving Inhabited
 
