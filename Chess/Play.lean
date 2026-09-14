@@ -1,6 +1,5 @@
 import Chess.EndsGameTheorems
 import Chess.FinishedGame
-import Chess.ValidPlay
 
 /-!
 # Playing an action
@@ -10,8 +9,7 @@ the next game state, or finishes the game. `GameState.after` is that
 transition: a move that does not end play is recorded with
 `GameState.advance` (and a draw offer, if the action proposes one); an
 ending action is recorded as `FinishedGame.ofAction`. The game is
-assumed valid and the action legal, so a played move leaves a valid
-position (`Position.valid_play`) and `EndsGame` is decidable.
+assumed valid and the action legal, so `EndsGame` is decidable.
 -/
 
 namespace Chess
@@ -138,27 +136,13 @@ theorem continueAfter_of_plays (g : GameState) {a : Action} {m : Move}
   simp [Action.Plays] at hp
   simp [continueAfter, hp]
 
-/-- A legal action in a valid game supplies `endsGameHyp`: a played move
-leaves a valid position, and every other action needs no extra
-hypothesis. -/
-theorem endsGameHyp_of_valid_legal (g : GameState) (a : Action)
-    (hg : Valid g.current) (ha : LegalAction g a) : endsGameHyp g a := by
-  cases a with
-  | move m =>
-    exact valid_play hg ha
-  | moveAndProposeDraw m =>
-    unfold LegalAction isLegalAction at ha
-    exact valid_play hg (Bool.and_eq_true_iff.mp ha).1
-  | surrender | acceptDraw | claimRepetition | claimNoProgress
-  | moveAndClaimRepetition _ | moveAndClaimNoProgress _ => trivial
-
 /-- Carry out legal action `a` in the unfinished valid game `g`.
 
 If `a` ends the game, the result is `FinishedGame.ofAction g a`.
 Otherwise it is the next unfinished state `continueAfter g a`. -/
 def after (g : GameState) (a : Action)
     (hg : Valid g.current) (ha : LegalAction g a) : AfterAction :=
-  match endsGameDecidable g a (endsGameHyp_of_valid_legal g a hg ha) with
+  match endsGameDecidable g a hg ha with
   | .isTrue h => .finished (ofAction g a h)
   | .isFalse _ => .continuing (continueAfter g a)
 
@@ -167,7 +151,7 @@ theorem after_eq_finished (g : GameState) (a : Action)
     (h : EndsGame g a) (hg : Valid g.current) (ha : LegalAction g a) :
     after g a hg ha = .finished (ofAction g a h) := by
   unfold after
-  cases endsGameDecidable g a (endsGameHyp_of_valid_legal g a hg ha) with
+  cases endsGameDecidable g a hg ha with
   | isTrue _ => rfl
   | isFalse hn => exact (hn h).elim
 
@@ -176,7 +160,7 @@ theorem after_eq_continuing (g : GameState) (a : Action)
     (h : ¬ EndsGame g a) (hg : Valid g.current) (ha : LegalAction g a) :
     after g a hg ha = .continuing (continueAfter g a) := by
   unfold after
-  cases endsGameDecidable g a (endsGameHyp_of_valid_legal g a hg ha) with
+  cases endsGameDecidable g a hg ha with
   | isTrue ht => exact (h ht).elim
   | isFalse _ => rfl
 
@@ -201,20 +185,11 @@ theorem after_isFinished_iff (g : GameState) (a : Action)
     (hg : Valid g.current) (ha : LegalAction g a) :
     (after g a hg ha).isFinished = true ↔ EndsGame g a := by
   unfold after
-  cases endsGameDecidable g a (endsGameHyp_of_valid_legal g a hg ha) with
+  cases endsGameDecidable g a hg ha with
   | isTrue h => simp [h]
   | isFalse h => simp [h]
 
 /-! ### Examples -/
-
-theorem starting_current_valid : Valid starting.current :=
-  starting_current ▸ Position.starting_valid
-
-theorem starting_e2e4_legalAction :
-    LegalAction starting (Action.move (Move.std Square.e2 Square.e4)) :=
-  starting_e2e4_legal
-
-theorem surrender_legal (g : GameState) : LegalAction g .surrender := rfl
 
 /-- White's `e2–e4` at the start continues the game: the next state is
 the position after that pawn move, with no pending draw offer. -/
@@ -251,16 +226,6 @@ theorem after_starting_e2e4_ne_surrender :
   rw [after_starting_e2e4, after_starting_surrender]
   exact AfterAction.continuing_ne_finished _ _
 
-theorem afterE2e4_valid : Valid afterE2e4.current :=
-  starting_e2e4_play_valid
-
-theorem afterE2e4e7e5Offer_valid : Valid afterE2e4e7e5Offer.current := by
-  native_decide
-
-theorem afterE2e4e7e5Offer_acceptDraw_legal :
-    LegalAction afterE2e4e7e5Offer .acceptDraw :=
-  rfl
-
 /-- Accepting a pending draw after `1. e4 e5` finishes as a drawn game. -/
 theorem after_afterE2e4e7e5Offer_acceptDraw :
     after afterE2e4e7e5Offer .acceptDraw afterE2e4e7e5Offer_valid
@@ -270,13 +235,6 @@ theorem after_afterE2e4e7e5Offer_acceptDraw :
   after_eq_finished _ _ afterE2e4e7e5Offer_acceptDraw_endsGame
     afterE2e4e7e5Offer_valid afterE2e4e7e5Offer_acceptDraw_legal
 
-theorem threefoldStarting_valid : Valid threefoldStarting.current :=
-  starting_current_valid
-
-theorem threefoldStarting_claimRepetition_legal :
-    LegalAction threefoldStarting .claimRepetition := by
-  native_decide
-
 /-- Claiming threefold repetition finishes as a draw. -/
 theorem after_threefoldStarting_claimRepetition :
     after threefoldStarting .claimRepetition threefoldStarting_valid
@@ -285,9 +243,6 @@ theorem after_threefoldStarting_claimRepetition :
         (claimRepetition_endsGame _)) :=
   after_eq_finished _ _ (claimRepetition_endsGame _)
     threefoldStarting_valid threefoldStarting_claimRepetition_legal
-
-theorem kingsOnly_valid : Valid kingsOnly := by
-  native_decide
 
 theorem kingsOnly_100_claimNoProgress_legal :
     LegalAction (repeated kingsOnly 100) .claimNoProgress := by
@@ -303,14 +258,6 @@ theorem after_kingsOnly_100_claimNoProgress :
   after_eq_finished _ _ (claimNoProgress_endsGame _) kingsOnly_valid
     kingsOnly_100_claimNoProgress_legal
 
-theorem beforeQueenMate_valid : Valid beforeQueenMateGame.current := by
-  native_decide
-
-theorem beforeQueenMate_qh7_legalAction :
-    LegalAction beforeQueenMateGame
-      (Action.move (Move.std Square.e7 Square.h7)) := by
-  native_decide
-
 /-- Playing `Qh7` from `beforeQueenMate` finishes as a win for White. -/
 theorem after_beforeQueenMate_qh7 :
     after beforeQueenMateGame (Action.move (Move.std Square.e7 Square.h7))
@@ -320,14 +267,6 @@ theorem after_beforeQueenMate_qh7 :
         beforeQueenMate_qh7_endsGame) :=
   after_eq_finished _ _ beforeQueenMate_qh7_endsGame
     beforeQueenMate_valid beforeQueenMate_qh7_legalAction
-
-theorem beforeStalemate_valid : Valid beforeStalemateGame.current := by
-  native_decide
-
-theorem beforeStalemate_a7_legalAction :
-    LegalAction beforeStalemateGame
-      (Action.move (Move.std Square.a6 Square.a7)) := by
-  native_decide
 
 /-- Playing `a6–a7` from `beforeStalemate` finishes as a draw. -/
 theorem after_beforeStalemate_a7 :
@@ -339,11 +278,6 @@ theorem after_beforeStalemate_a7 :
   after_eq_finished _ _ beforeStalemate_a7_endsGame
     beforeStalemate_valid beforeStalemate_a7_legalAction
 
-theorem kingsOnly_e1d1_legalAction (n : Nat) :
-    LegalAction (repeated kingsOnly n)
-      (Action.move (Move.std Square.e1 Square.d1)) :=
-  kingsOnly_e1d1_legal
-
 /-- A king move with only two kings finishes: the resulting position is
 dead. -/
 theorem after_kingsOnly_e1d1 :
@@ -354,13 +288,6 @@ theorem after_kingsOnly_e1d1 :
         kingsOnly_e1d1_endsGame) :=
   after_eq_finished _ _ kingsOnly_e1d1_endsGame
     kingsOnly_valid (kingsOnly_e1d1_legalAction 0)
-
-theorem fivefoldBeforeE4_valid : Valid fivefoldBeforeE4.current :=
-  starting_current_valid
-
-theorem fivefoldBeforeE4_e2e4_legalAction :
-    LegalAction fivefoldBeforeE4 (Action.move (Move.std Square.e2 Square.e4)) :=
-  starting_e2e4_legal
 
 /-- Playing `e2–e4` into a fifth occurrence finishes as a draw. -/
 theorem after_fivefoldBeforeE4 :
