@@ -1911,41 +1911,41 @@ theorem tempo_le (s : KNState) : s.tempo ≤ 1 := by
 theorem finaleMu_le {s : KNState} {n : Nat} (h : s.finaleMu = some n) : n ≤ 8 := by
   unfold finaleMu at h
   cases h0 : (s.mateB && s.wk == tgtWK && s.bk == mateBK && s.wn == mateWN && s.bn == mateBN)
-  · rw [h0, if_neg Bool.false_ne_true] at h
+  · rw [h0, ite_eq_right Bool.false_ne_true] at h
     cases h1 : (s.wk == tgtWK && s.bk == mateBK && s.wn == tgtWN && s.bn == mateBN &&
         s.toMove == .white)
-    · rw [h1, if_neg Bool.false_ne_true] at h
+    · rw [h1, ite_eq_right Bool.false_ne_true] at h
       cases h2 : (s.wk == tgtWK && s.bk == mateBK && s.wn == tgtWN && s.bn == tgtBN &&
           s.toMove == .black)
-      · rw [h2, if_neg Bool.false_ne_true] at h
+      · rw [h2, ite_eq_right Bool.false_ne_true] at h
         cases h3 : (s.wk == tempoWK2 && s.bk == mateBK && s.wn == tgtWN && s.bn == tgtBN &&
             s.toMove == .white)
-        · rw [h3, if_neg Bool.false_ne_true] at h
+        · rw [h3, ite_eq_right Bool.false_ne_true] at h
           cases h4 : (s.wk == tempoWK2 && s.bk == Square.g8 && s.wn == tgtWN &&
               s.bn == tgtBN && s.toMove == .black)
-          · rw [h4, if_neg Bool.false_ne_true] at h
+          · rw [h4, ite_eq_right Bool.false_ne_true] at h
             cases h5 : (s.wk == tempoWK && s.bk == Square.g8 && s.wn == tgtWN &&
                 s.bn == tgtBN && s.toMove == .white)
-            · rw [h5, if_neg Bool.false_ne_true] at h
+            · rw [h5, ite_eq_right Bool.false_ne_true] at h
               cases h6 : (s.wk == tempoWK && s.bk == tgtBK && s.wn == tgtWN &&
                   s.bn == tgtBN && s.toMove == .black)
-              · rw [h6, if_neg Bool.false_ne_true] at h
+              · rw [h6, ite_eq_right Bool.false_ne_true] at h
                 cases h7 : (s.assembledStrict && s.toMove == .white)
-                · rw [h7, if_neg Bool.false_ne_true] at h
+                · rw [h7, ite_eq_right Bool.false_ne_true] at h
                   cases h8 : (s.wk == tempoWK && s.bk == mateBK && s.wn == tgtWN &&
                       s.bn == tgtBN && s.toMove == .white)
-                  · rw [h8, if_neg Bool.false_ne_true] at h
+                  · rw [h8, ite_eq_right Bool.false_ne_true] at h
                     cases h9 : (s.wk == tempoWK && s.bk == Square.g8 && s.wn == tgtWN &&
                         s.bn == tgtBN && s.toMove == .black)
-                    · rw [h9, if_neg Bool.false_ne_true] at h
+                    · rw [h9, ite_eq_right Bool.false_ne_true] at h
                       cases h10 : (s.wk == tgtWK && s.bk == Square.g8 && s.wn == tgtWN &&
                           s.bn == tgtBN && s.toMove == .white)
-                      · rw [h10, if_neg Bool.false_ne_true] at h
+                      · rw [h10, ite_eq_right Bool.false_ne_true] at h
                         cases h11 : (s.assembledStrict && s.toMove == .black)
-                        · rw [h11, if_neg Bool.false_ne_true] at h
+                        · rw [h11, ite_eq_right Bool.false_ne_true] at h
                           cases h12 : (s.wk == tgtWK && s.bk == tgtBK && s.bn == tgtBN &&
                               s.wn == waitWN && s.toMove == .white)
-                          · rw [h12, if_neg Bool.false_ne_true] at h
+                          · rw [h12, ite_eq_right Bool.false_ne_true] at h
                             nomatch h
                           · rw [h12] at h; injection h with hn; omega
                         · rw [h11] at h; injection h with hn; omega
@@ -1965,7 +1965,7 @@ theorem mu_staging {s : KNState} (hm : s.mateB = false) (hf : s.finaleMu = none)
     s.mu = 2 * (whiteWork s.wk s.wn + blackWork s.bk s.bn) + s.tempo +
       (if s.inCheckB s.toMove then 256 else 0) + 16 := by
   unfold mu
-  rw [if_neg (Bool.eq_false_iff.mp hm), hf]
+  rw [ite_eq_right (Bool.eq_false_iff.mp hm), hf]
 
 theorem staging_mu_ge {s : KNState} (hm : s.mateB = false) (hf : s.finaleMu = none) :
     16 ≤ s.mu := by
@@ -2067,14 +2067,14 @@ theorem tempo_eq_zero_of_whiteWork_pos {s : KNState} (ht : s.toMove = .white)
     (hp : 0 < whiteWork s.wk s.wn) : s.tempo = 0 := by
   unfold tempo
   rw [ht]
-  refine if_neg ?_
+  refine ite_eq_right ?_
   simpa only [beq_iff_eq] using Nat.ne_of_gt hp
 
 theorem tempo_eq_zero_of_blackWork_pos {s : KNState} (ht : s.toMove = .black)
     (hp : 0 < blackWork s.bk s.bn) : s.tempo = 0 := by
   unfold tempo
   rw [ht]
-  refine if_neg ?_
+  refine ite_eq_right ?_
   simpa only [beq_iff_eq] using Nat.ne_of_gt hp
 
 theorem inCheckB_black_after_whiteKing {s : KNState} {d : Square}
@@ -2133,12 +2133,12 @@ theorem mu_drop_of_whiteKing {s : KNState} {d : Square}
   have hge : 16 ≤ s.mu := staging_mu_ge hm hf
   by_cases hm1 : s1.mateB = true
   · exact Or.inl hm1
-  have hm1f : s1.mateB = false := eq_false_of_ne_true hm1
+  have hm1f : s1.mateB = false := Bool.eq_false_of_ne_true hm1
   match hf1 : s1.finaleMu with
   | some n =>
     have hmu1 : s1.mu = n := by
       unfold mu
-      rw [if_neg (Bool.eq_false_iff.mp hm1f), hf1]
+      rw [ite_eq_right (Bool.eq_false_iff.mp hm1f), hf1]
     have hn : n ≤ 8 := finaleMu_le hf1
     right
     omega
@@ -2155,7 +2155,7 @@ theorem mu_drop_of_whiteKing {s : KNState} {d : Square}
     rw [hwk, hbk, hwn, hbn, ht1c] at hs1
     have ht1 : s1.tempo ≤ 1 := tempo_le s1
     have hbonus : (if s1.inCheckB .black then 256 else 0) = 0 :=
-      if_neg (Bool.eq_false_iff.mp hchk1)
+      ite_eq_right (Bool.eq_false_iff.mp hchk1)
     right
     omega
 
@@ -2173,12 +2173,12 @@ theorem mu_drop_of_blackKing {s : KNState} {d : Square}
   have hge : 16 ≤ s.mu := staging_mu_ge hm hf
   by_cases hm1 : s1.mateB = true
   · exact Or.inl hm1
-  have hm1f : s1.mateB = false := eq_false_of_ne_true hm1
+  have hm1f : s1.mateB = false := Bool.eq_false_of_ne_true hm1
   match hf1 : s1.finaleMu with
   | some n =>
     have hmu1 : s1.mu = n := by
       unfold mu
-      rw [if_neg (Bool.eq_false_iff.mp hm1f), hf1]
+      rw [ite_eq_right (Bool.eq_false_iff.mp hm1f), hf1]
     have hn : n ≤ 8 := finaleMu_le hf1
     right
     omega
@@ -2195,7 +2195,7 @@ theorem mu_drop_of_blackKing {s : KNState} {d : Square}
     rw [hwk, hbk, hwn, hbn, ht1c] at hs1
     have ht1 : s1.tempo ≤ 1 := tempo_le s1
     have hbonus : (if s1.inCheckB .white then 256 else 0) = 0 :=
-      if_neg (Bool.eq_false_iff.mp hchk1)
+      ite_eq_right (Bool.eq_false_iff.mp hchk1)
     right
     omega
 
@@ -2211,12 +2211,12 @@ theorem mu_drop_of_whiteKnight {s : KNState} {d : Square}
   have hge : 16 ≤ s.mu := staging_mu_ge hm hf
   by_cases hm1 : s1.mateB = true
   · exact Or.inl hm1
-  have hm1f : s1.mateB = false := eq_false_of_ne_true hm1
+  have hm1f : s1.mateB = false := Bool.eq_false_of_ne_true hm1
   match hf1 : s1.finaleMu with
   | some n =>
     have hmu1 : s1.mu = n := by
       unfold mu
-      rw [if_neg (Bool.eq_false_iff.mp hm1f), hf1]
+      rw [ite_eq_right (Bool.eq_false_iff.mp hm1f), hf1]
     have hn : n ≤ 8 := finaleMu_le hf1
     right
     omega
@@ -2233,7 +2233,7 @@ theorem mu_drop_of_whiteKnight {s : KNState} {d : Square}
     rw [hwk, hbk, hwn, hbn, ht1c] at hs1
     have ht1 : s1.tempo ≤ 1 := tempo_le s1
     have hbonus : (if s1.inCheckB .black then 256 else 0) = 0 :=
-      if_neg (Bool.eq_false_iff.mp hchk1)
+      ite_eq_right (Bool.eq_false_iff.mp hchk1)
     right
     omega
 
@@ -2249,12 +2249,12 @@ theorem mu_drop_of_blackKnight {s : KNState} {d : Square}
   have hge : 16 ≤ s.mu := staging_mu_ge hm hf
   by_cases hm1 : s1.mateB = true
   · exact Or.inl hm1
-  have hm1f : s1.mateB = false := eq_false_of_ne_true hm1
+  have hm1f : s1.mateB = false := Bool.eq_false_of_ne_true hm1
   match hf1 : s1.finaleMu with
   | some n =>
     have hmu1 : s1.mu = n := by
       unfold mu
-      rw [if_neg (Bool.eq_false_iff.mp hm1f), hf1]
+      rw [ite_eq_right (Bool.eq_false_iff.mp hm1f), hf1]
     have hn : n ≤ 8 := finaleMu_le hf1
     right
     omega
@@ -2271,7 +2271,7 @@ theorem mu_drop_of_blackKnight {s : KNState} {d : Square}
     rw [hwk, hbk, hwn, hbn, ht1c] at hs1
     have ht1 : s1.tempo ≤ 1 := tempo_le s1
     have hbonus : (if s1.inCheckB .white then 256 else 0) = 0 :=
-      if_neg (Bool.eq_false_iff.mp hchk1)
+      ite_eq_right (Bool.eq_false_iff.mp hchk1)
     right
     omega
 
@@ -2279,7 +2279,7 @@ theorem reducingKingProgress_sound {s : KNState} (hok : s.okB = true)
     (h : s.reducingKingProgress = true) : ∃ s1, Progress s s1 := by
   by_cases hm : s.mateB = true
   · exact ⟨s, hok, Reachable.refl, Or.inl hm⟩
-  have hm' : s.mateB = false := eq_false_of_ne_true hm
+  have hm' : s.mateB = false := Bool.eq_false_of_ne_true hm
   simp only [reducingKingProgress, Bool.and_eq_true] at h
   obtain ⟨hhas, hfin⟩ := h
   have hf : s.finaleMu = none := by
@@ -2304,7 +2304,7 @@ theorem reducingKnightProgress_sound {s : KNState} (hok : s.okB = true)
     (h : s.reducingKnightProgress = true) : ∃ s1, Progress s s1 := by
   by_cases hm : s.mateB = true
   · exact ⟨s, hok, Reachable.refl, Or.inl hm⟩
-  have hm' : s.mateB = false := eq_false_of_ne_true hm
+  have hm' : s.mateB = false := Bool.eq_false_of_ne_true hm
   simp only [reducingKnightProgress, Bool.and_eq_true] at h
   obtain ⟨hhas, hfin⟩ := h
   have hf : s.finaleMu = none := by
@@ -2343,9 +2343,9 @@ theorem dropsBelow_spec {s : KNState} {m : KNMove} {x : Nat}
     by_cases hok1 : (s.apply m).okB = true
     · simp only [hok1, ite_true, Bool.or_eq_true, decide_eq_true_iff] at h
       exact ⟨hfl, hok1, h⟩
-    · simp only [eq_false_of_ne_true hok1] at h
+    · simp only [Bool.eq_false_of_ne_true hok1] at h
       exact (Bool.false_ne_true h).elim
-  · simp only [eq_false_of_ne_true hfl] at h
+  · simp only [Bool.eq_false_of_ne_true hfl] at h
     exact (Bool.false_ne_true h).elim
 
 theorem dropsBelow_progress {s : KNState} {m : KNMove} {x : Nat}
@@ -2366,7 +2366,7 @@ theorem mem_of_anyIf {p : Square → Bool} {xs : List Square}
     unfold anyIf at h
     by_cases hp : p d = true
     · exact ⟨d, List.mem_cons_self, hp⟩
-    · simp only [eq_false_of_ne_true hp] at h
+    · simp only [Bool.eq_false_of_ne_true hp] at h
       obtain ⟨d', hdmem, hd⟩ := ih h
       exact ⟨d', List.mem_cons_of_mem _ hdmem, hd⟩
 
@@ -2381,7 +2381,7 @@ theorem anyIf_of_mem {p : Square → Bool} {xs : List Square} {d : Square}
       simp [hp]
     · by_cases ha : p a = true
       · simp [ha]
-      · simp only [eq_false_of_ne_true ha]
+      · simp only [Bool.eq_false_of_ne_true ha]
         exact ih h
 
 theorem of_allIf {p : Square → Bool} {xs : List Square} {x : Square}
@@ -2391,14 +2391,14 @@ theorem of_allIf {p : Square → Bool} {xs : List Square} {x : Square}
     unfold allIf at h
     by_cases hp : p x = true
     · exact hp
-    · simp only [eq_false_of_ne_true hp] at h
+    · simp only [Bool.eq_false_of_ne_true hp] at h
       cases h
   | tail a hmem ih =>
     unfold allIf at h
     by_cases hp : p a = true
     · simp only [hp] at h
       exact ih h
-    · simp only [eq_false_of_ne_true hp] at h
+    · simp only [Bool.eq_false_of_ne_true hp] at h
       cases h
 
 theorem anyIf_eq_false {p : Square → Bool} {xs : List Square} :
@@ -2412,10 +2412,10 @@ theorem anyIf_eq_false {p : Square → Bool} {xs : List Square} :
       by_cases hp : p a = true
       · simp only [hp] at h
         cases h
-      · simp only [eq_false_of_ne_true hp] at h
+      · simp only [Bool.eq_false_of_ne_true hp] at h
         rcases List.mem_cons.mp hx with h1 | ht
         · subst h1
-          exact eq_false_of_ne_true hp
+          exact Bool.eq_false_of_ne_true hp
         · exact ih.mp h x ht
     · intro h
       have ha := h a List.mem_cons_self
@@ -2495,23 +2495,23 @@ theorem twoPlyFrom_sound {s : KNState} {m : KNMove} {x : Nat}
     · simp only [hok1, ite_true] at h
       by_cases hm : (s.apply m).mateB = true
       · exact ⟨s.apply m, hok1, reachable_apply hok hfl, Or.inl hm⟩
-      · simp only [eq_false_of_ne_true hm] at h
+      · simp only [Bool.eq_false_of_ne_true hm] at h
         by_cases hlt : decide ((s.apply m).mu < x) = true
         · exact ⟨s.apply m, hok1, reachable_apply hok hfl,
             Or.inr (hx ▸ decide_eq_true_iff.mp hlt)⟩
-        · simp only [eq_false_of_ne_true hlt] at h
+        · simp only [Bool.eq_false_of_ne_true hlt] at h
           by_cases hrk : (s.apply m).hasReducingKing = true
           · simp only [hrk, ite_true] at h
             exact onePlyBelow_sound_from hok1 (reachable_apply hok hfl) hx h
-          · simp only [eq_false_of_ne_true hrk] at h
+          · simp only [Bool.eq_false_of_ne_true hrk] at h
             by_cases hrn : (s.apply m).hasReducingKnight = true
             · simp only [hrn, ite_true] at h
               exact onePlyBelow_sound_from hok1 (reachable_apply hok hfl) hx h
-            · simp only [eq_false_of_ne_true hrn] at h
+            · simp only [Bool.eq_false_of_ne_true hrn] at h
               exact (Bool.false_ne_true h).elim
-    · simp only [eq_false_of_ne_true hok1] at h
+    · simp only [Bool.eq_false_of_ne_true hok1] at h
       exact (Bool.false_ne_true h).elim
-  · simp only [eq_false_of_ne_true hfl] at h
+  · simp only [Bool.eq_false_of_ne_true hfl] at h
     exact (Bool.false_ne_true h).elim
 
 theorem twoPlyAt_sound {s : KNState} {x : Nat}
@@ -2831,7 +2831,7 @@ theorem hasReducingKnight_of_geoKnightCoversB {s : KNState} (ht : s.toMove = .bl
   exact (Bool.and_eq_true_iff.mpr ⟨decide_eq_true hcur, List.any_eq_true.mpr ⟨d, hdmem, by
     have hcb : (Color.black == Color.white) = false := rfl
     simp only [hfl, decide_eq_false hna, Bool.not_false, hcb,
-      if_neg Bool.false_ne_true, decide_eq_true hlt]
+      ite_eq_right Bool.false_ne_true, decide_eq_true hlt]
     rfl⟩⟩)
 
 theorem coversDests_of_strongPairs {ds : List Square} {en : Square}

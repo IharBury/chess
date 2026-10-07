@@ -465,13 +465,13 @@ theorem LoneShape.escape_legal {c χ : Color} {p : Position} (hs : LoneShape c p
       have hse : s ≠ t := by
         intro hst
         subst hst
-        simp only [Board.relocate, if_true, Option.some.injEq] at hsq
+        simp only [Board.relocate, ite_true, Option.some.injEq] at hsq
         rw [← hsq] at hqc
         exact Color.other_ne c hqc.symm
       have hsk : s ≠ k := by
         intro hsk
         subst hsk
-        simp only [Board.relocate, hse, if_false, if_true] at hsq
+        simp only [Board.relocate, hse, ite_false, ite_true] at hsq
         cases hsq
       have hsq' : p.board s = some q := by
         simpa [Board.relocate, hse, hsk] using hsq

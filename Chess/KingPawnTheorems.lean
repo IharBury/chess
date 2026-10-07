@@ -739,14 +739,14 @@ theorem relocate_no_pawn_of_color (b : Board) (src dst : Square) (placed : Piece
   intro s hs
   unfold Board.relocate at hs
   by_cases hdst : s = dst
-  · rw [if_pos hdst] at hs
+  · rw [ite_eq_left hdst] at hs
     injection hs with heq
     exact hpl heq
-  · rw [if_neg hdst] at hs
+  · rw [ite_eq_right hdst] at hs
     by_cases hsrc : s = src
-    · rw [if_pos hsrc] at hs
+    · rw [ite_eq_left hsrc] at hs
       cases hs
-    · rw [if_neg hsrc] at hs
+    · rw [ite_eq_right hsrc] at hs
       exact h s hs
 
 theorem IsKingAndPawn.play_rot180 {p : Position} {m : Move}

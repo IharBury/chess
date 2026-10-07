@@ -7,7 +7,7 @@ defaultTargets = ["Chess"]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
 relaxedAutoImplicit = false
 linter.style.header = false
-linter.style.nativeDecide = false
+linter.style.native = false
 weak.linter.mathlibStandardSet = true
 maxSynthPendingDepth = 3
 

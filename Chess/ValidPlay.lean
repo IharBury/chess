@@ -56,7 +56,7 @@ theorem occupiedBy_relocate (b : Board) (src dst : Square) (p : Piece)
       else b.occupiedBy c \ {src, dst} := by
   ext x
   by_cases hp : p.color = c
-  · rw [if_pos hp]
+  · rw [ite_eq_left hp]
     simp only [mem_occupiedBy, Finset.mem_insert, Finset.mem_sdiff,
       Finset.mem_singleton]
     by_cases hx : x = dst
@@ -66,7 +66,7 @@ theorem occupiedBy_relocate (b : Board) (src dst : Square) (p : Piece)
       · subst hs
         simp [relocate, hx]
       · simp [relocate, hx, hs]
-  · rw [if_neg hp]
+  · rw [ite_eq_right hp]
     simp only [mem_occupiedBy, Finset.mem_sdiff, Finset.mem_insert,
       Finset.mem_singleton]
     by_cases hx : x = dst
@@ -119,7 +119,7 @@ theorem kingSquares_relocate (b : Board) (src dst : Square) (p : Piece)
       else b.kingSquares c \ {src, dst} := by
   ext x
   by_cases hk : p.color = c ∧ p.kind = .king
-  · rw [if_pos hk]
+  · rw [ite_eq_left hk]
     have hp : p = { color := c, kind := .king } := Piece.eq_king hk
     by_cases hx : x = dst
     · subst hx
@@ -152,7 +152,7 @@ theorem kingSquares_relocate (b : Board) (src dst : Square) (p : Piece)
             · exact (mem_kingSquares _ _ _).mp (Finset.mem_sdiff.mp h).1
           apply (mem_kingSquares _ _ _).mpr
           rwa [relocate_other _ _ _ _ _ hx hs]
-  · rw [if_neg hk]
+  · rw [ite_eq_right hk]
     by_cases hx : x = dst
     · subst hx
       constructor
@@ -201,7 +201,7 @@ theorem kingSquares_relocate_card (b : Board) (src dst : Square) (p : Piece)
     ((b.relocate src dst p).kingSquares c).card = 1 := by
   rw [kingSquares_relocate]
   by_cases hpk : p.color = c ∧ p.kind = .king
-  · rw [if_pos hpk]
+  · rw [ite_eq_left hpk]
     have hksrc : src ∈ b.kingSquares c := hsame.mpr hpk
     obtain ⟨k, hk1⟩ := Finset.card_eq_one.mp hcard
     have hsk : src = k := by
@@ -212,7 +212,7 @@ theorem kingSquares_relocate_card (b : Board) (src dst : Square) (p : Piece)
     have hdstn : dst ∉ ({src} : Finset Square) \ {src} := by simp
     rw [Finset.card_insert_of_notMem hdstn]
     simp only [Finset.sdiff_self, Finset.card_empty, Nat.zero_add]
-  · rw [if_neg hpk]
+  · rw [ite_eq_right hpk]
     have hnotsrc : src ∉ b.kingSquares c := fun h => hpk (hsame.mp h)
     have heq : b.kingSquares c \ {src, dst} = b.kingSquares c := by
       ext x
