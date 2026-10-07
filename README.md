@@ -22,9 +22,9 @@ fails if any of them stops being true of the definitions.
 ## Requirements
 
 * [elan](https://github.com/leanprover/elan), which will install the Lean
-  toolchain pinned in `lean-toolchain` (`leanprover/lean4:v4.33.0`)
+  toolchain pinned in `lean-toolchain` (`leanprover/lean4:v4.34.1`)
 * this package depends on [mathlib](https://github.com/leanprover-community/mathlib4)
-  at the matching `v4.33.0` tag
+  at the matching `v4.34.1` tag
 
 ```bash
 curl https://elan.lean-lang.org/elan-init.sh -sSf | sh
