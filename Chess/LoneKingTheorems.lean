@@ -524,7 +524,7 @@ theorem mem_successors {q r : Position} :
     · cases hm
   · rintro ⟨m, hleg, rfl⟩
     exact ⟨m, mem_candidateMoves_of_legalMove hleg, by
-      rw [if_pos (show q.isLegalMove m = true from hleg), normalize_eq]⟩
+      rw [ite_eq_left (show q.isLegalMove m = true from hleg), normalize_eq]⟩
 
 /-- A checked engineered line proves checkmate reachable. -/
 theorem probeLive_sound {q : Position} (h : probeLive q = true) : CheckmateReachable q := by
@@ -579,7 +579,7 @@ theorem explore_true (c : Color) :
   | case2 V q W hlive => exact fun _ => ⟨q, List.mem_cons_self, probeLive_sound hlive⟩
   | case3 V q W hlive hdead ih =>
     intro h
-    rw [explore, if_neg hlive, if_pos hdead] at h
+    rw [explore, ite_eq_right hlive, ite_eq_left hdead] at h
     obtain ⟨r, hr, hcr⟩ := ih h
     exact ⟨r, List.mem_cons_of_mem q hr, hcr⟩
   | case4 V q W hlive hdead _ hmate =>
@@ -587,7 +587,7 @@ theorem explore_true (c : Color) :
       (inCheckmate_of_mateTest hmate)⟩
   | case5 V q W hlive hdead _ hmate ih =>
     intro h
-    rw [explore, if_neg hlive, if_neg hdead, if_neg hmate] at h
+    rw [explore, ite_eq_right hlive, ite_eq_right hdead, ite_eq_right hmate] at h
     obtain ⟨r, hr, hcr⟩ := ih h
     rcases List.mem_append.mp hr with hr | hr
     · exact ⟨r, List.mem_cons_of_mem q hr, hcr⟩
@@ -619,22 +619,22 @@ theorem explore_false (c : Color) (p : Position) :
     exact ⟨V, fun q hq => hq, hreach, fun q hq => hclosed q hq (List.not_mem_nil)⟩
   | case2 V q W hlive =>
     intro h
-    rw [explore, if_pos hlive] at h
+    rw [explore, ite_eq_left hlive] at h
     cases h
   | case3 V q W hlive hdead ih =>
     intro h hWV hreach hclosed
-    rw [explore, if_neg hlive, if_pos hdead] at h
+    rw [explore, ite_eq_right hlive, ite_eq_left hdead] at h
     refine ih h (fun r hr => hWV r (List.mem_cons_of_mem q hr)) hreach fun r hr hrW => ?_
     by_cases hrq : r = q
     · exact Or.inl (hrq ▸ hdead)
     · exact hclosed r hr fun hmem => (List.mem_cons.mp hmem).elim hrq hrW
   | case4 V q W hlive hdead _ hmate =>
     intro h
-    rw [explore, if_neg hlive, if_neg hdead, if_pos hmate] at h
+    rw [explore, ite_eq_right hlive, ite_eq_right hdead, ite_eq_left hmate] at h
     cases h
   | case5 V q W hlive hdead _ hmate ih =>
     intro h hWV hreach hclosed
-    rw [explore, if_neg hlive, if_neg hdead, if_neg hmate] at h
+    rw [explore, ite_eq_right hlive, ite_eq_right hdead, ite_eq_right hmate] at h
     have hqV : q ∈ V := hWV q List.mem_cons_self
     have hWV' : ∀ r ∈ W ++ fresh V (successors q), r ∈ V ++ fresh V (successors q) := by
       intro r hr

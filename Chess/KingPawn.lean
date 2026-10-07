@@ -1317,7 +1317,7 @@ theorem pawnMoveOk_of_fastPawn {s : KPState} {d : Square}
     simp only [Move.std, pawnPushDelta_white, toPosition, pawnStartRank_white,
       Fin.isValue, mul_one, pawnJumpOverRank_white, Option.none_beq_some,
       Bool.and_false, Bool.or_false, pawnPromotionRank_white, beq_iff_eq,
-      BEq.rfl, Bool.if_true_right, Bool.and_eq_true, Bool.or_eq_true,
+      BEq.rfl, Bool.ite_true_right, Bool.and_eq_true, Bool.or_eq_true,
       Option.isNone_iff_eq_none, Bool.not_eq_eq_eq_not,
       Bool.not_true, decide_eq_false_iff_not]
     constructor

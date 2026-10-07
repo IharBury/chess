@@ -7,14 +7,14 @@ defaultTargets = ["Chess"]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
 relaxedAutoImplicit = false
 linter.style.header = false
-linter.style.nativeDecide = false
+linter.style.native = false
 weak.linter.mathlibStandardSet = true
 maxSynthPendingDepth = 3
 
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.33.0"
+rev = "v4.34.1"
 
 [[lean_lib]]
 name = "Chess"

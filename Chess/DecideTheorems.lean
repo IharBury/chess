@@ -177,13 +177,13 @@ theorem KingShape.escape_legal {χ : Color} {p : Position} (hs : KingShape p)
       have hse : s ≠ t := by
         intro hst
         subst hst
-        simp only [Board.relocate, if_true, Option.some.injEq] at hsq
+        simp only [Board.relocate, ite_true, Option.some.injEq] at hsq
         rw [← hsq] at hqc
         exact Color.other_ne p.toMove hqc.symm
       have hsk : s ≠ k := by
         intro hsk
         subst hsk
-        simp only [Board.relocate, hse, if_false, if_true] at hsq
+        simp only [Board.relocate, hse, ite_false, ite_true] at hsq
         cases hsq
       have hsq' : p.board s = some q := by
         simpa [Board.relocate, hse, hsk] using hsq
@@ -342,7 +342,7 @@ theorem explore_true :
   | case2 V q W hlive => exact fun _ => ⟨q, List.mem_cons_self, knownLive_sound hlive⟩
   | case3 V q W hlive hdead ih =>
     intro h
-    rw [explore, if_neg hlive, if_pos hdead] at h
+    rw [explore, ite_eq_right hlive, ite_eq_left hdead] at h
     obtain ⟨r, hr, hcr⟩ := ih h
     exact ⟨r, List.mem_cons_of_mem q hr, hcr⟩
   | case4 V q W hlive hdead _ hmate =>
@@ -350,7 +350,7 @@ theorem explore_true :
       (inCheckmate_of_mateTest hmate)⟩
   | case5 V q W hlive hdead _ hmate ih =>
     intro h
-    rw [explore, if_neg hlive, if_neg hdead, if_neg hmate] at h
+    rw [explore, ite_eq_right hlive, ite_eq_right hdead, ite_eq_right hmate] at h
     obtain ⟨r, hr, hcr⟩ := ih h
     rcases List.mem_append.mp hr with hr | hr
     · exact ⟨r, List.mem_cons_of_mem q hr, hcr⟩
@@ -380,22 +380,22 @@ theorem explore_false (p : Position) :
     exact ⟨V, fun q hq => hq, hreach, fun q hq => hclosed q hq (List.not_mem_nil)⟩
   | case2 V q W hlive =>
     intro h
-    rw [explore, if_pos hlive] at h
+    rw [explore, ite_eq_left hlive] at h
     cases h
   | case3 V q W hlive hdead ih =>
     intro h hWV hreach hclosed
-    rw [explore, if_neg hlive, if_pos hdead] at h
+    rw [explore, ite_eq_right hlive, ite_eq_left hdead] at h
     refine ih h (fun r hr => hWV r (List.mem_cons_of_mem q hr)) hreach fun r hr hrW => ?_
     by_cases hrq : r = q
     · exact Or.inl (hrq ▸ hdead)
     · exact hclosed r hr fun hmem => (List.mem_cons.mp hmem).elim hrq hrW
   | case4 V q W hlive hdead _ hmate =>
     intro h
-    rw [explore, if_neg hlive, if_neg hdead, if_pos hmate] at h
+    rw [explore, ite_eq_right hlive, ite_eq_right hdead, ite_eq_left hmate] at h
     cases h
   | case5 V q W hlive hdead _ hmate ih =>
     intro h hWV hreach hclosed
-    rw [explore, if_neg hlive, if_neg hdead, if_neg hmate] at h
+    rw [explore, ite_eq_right hlive, ite_eq_right hdead, ite_eq_right hmate] at h
     have hqV : q ∈ V := hWV q List.mem_cons_self
     have hWV' : ∀ r ∈ W ++ LoneKing.fresh V (LoneKing.successors q),
         r ∈ V ++ LoneKing.fresh V (LoneKing.successors q) := by
